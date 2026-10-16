@@ -1,7 +1,7 @@
 # Shell 實測後的修正（特殊字元名稱、map 遊玩模式、新 BanchoBot 樣本、mp 轉送、log 輸出）設計
 
 - 日期：2026-10-17
-- 狀態：待使用者審閱
+- 狀態：已實作（自動測試與本機啟動驗證完成；真實 Bancho 回覆仍待使用者實測）
 - 前一份設計：`2026-10-16-match-room-design.md`（本文件只寫差異）
 - 分支：`feature/match-room-phase2`（完成後與階段二一起合回 `main`）
 
@@ -171,3 +171,10 @@ mp <BanchoBot 指令與參數…> [--room <房號>]
 | `addref --room 42 -- -SH-` 與 `addref -- -SH- --room 42` 各自怎麼解析 | ✅ 已驗證（2026-10-17）：前者 `Option '-SH-' requires a value`；後者參數為 `[-SH-, --room, 42]` | 說明改為 `--` 只能緊接指令、指定房間用雙引號 |
 | `!mp map <id> <mode>` 後 BanchoBot 的回覆 | 使用者實測 | 有新格式就加入樣本與解析規則 |
 | 比賽正常結束的訊息 | 使用者實測一場打完的比賽 | 之後再加 `MatchFinished` 與狀態 |
+
+## 9. 本機驗證結果（2026-10-17）
+
+- `mvnw.cmd test`：265 項通過，0 failure／error／skip。
+- `mvnw.cmd -q package -DskipTests`：exit 0。
+- 停用互動模式與 IRC 自動連線，以假憑證執行 jar 的 `rooms`：exit 0，顯示「目前沒有開著的房間」；獨立暫存目錄中 console 的 INFO 為 0 行、檔案 INFO 為 4 行。未刪除或覆寫專案原有 log。
+- 真實 Bancho 的模式變更與正常比賽結束回覆尚待蒐集，不宣稱已驗證。

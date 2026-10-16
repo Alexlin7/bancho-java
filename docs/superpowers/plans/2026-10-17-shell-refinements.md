@@ -10,13 +10,11 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-17-shell-refinements-design.md`
 
+**執行紀錄（2026-10-17）：** Task 1–6 已實作並各自提交。Task 5 採設計備案，不自動加補全引號：真實 JLine 對已輸入開引號的前綴會重複引號；完整說明由 `addref --help`／`invite --help` 顯示。缺省模式在 Spring Shell 會綁成空字串，實作將空字串與 null 都視為未指定。以下 checkbox 保留原始執行步驟供追溯；驗證結果以提交紀錄與設計文件為準。
+
 ## Global Constraints
 
-- 分支：`feature/match-room-phase2`，每個 task 結束時 commit；commit 訊息結尾加：
-  ```
-  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-  Claude-Session: https://claude.ai/code/session_01KEiddkvipiQ9b3HfWhdPup
-  ```
+- 分支：`feature/match-room-phase2`，每個 task 結束時 commit；commit attribution 只標註實際參與者，不沿用其他模型或 session 的 trailer。
 - 依賴方向 `shell → match → irc`；`match.preset` 不得 import `match`（`match` 已 import `match.preset`，反過來會成環）。
 - 程式註解、log、使用者看到的訊息一律繁體中文；log 用 `@Slf4j`；錯誤以 `錯誤：` 開頭的字串回給 shell，不讓例外冒出。
 - 遊玩模式：0 osu!、1 osu!taiko、2 osu!catch、3 osu!mania；名稱 `osu`/`std`→0、`taiko`→1、`catch`/`fruits`/`ctb`→2、`mania`→3，不分大小寫。
@@ -428,4 +426,4 @@ CLAUDE.md「指令」段落加：log 檔位置與 `BANCHO_LOG_FILE`、`LOGGING_L
 ## 完成後
 
 - spec（2026-10-17）狀態改為「已實作」，第 8 節填入 Task 5 Step 1 的驗證結果。
-- 請使用者在真正的終端機實測：`map 2453358 3` 的 BanchoBot 回覆、`addref` 的 Tab 補全帶引號、`logs/bancho.log` 內容，以及一場正常打完的比賽訊息。
+- 請使用者在真正的終端機實測：`map 2453358 3` 的 BanchoBot 回覆、`addref "-SH-" --room 42` 與 `addref --help`、`logs/bancho.log` 內容，以及一場正常打完的比賽訊息。名稱補全依 Task 5 備案不自動加引號。
