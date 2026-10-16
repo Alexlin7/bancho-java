@@ -1,4 +1,4 @@
-package idv.alexlin7.tw.bancho;
+package idv.alexlin7.tw.bancho.irc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -12,7 +12,7 @@ import idv.alexlin7.tw.bancho.console.ConsoleConfiguration;
 class OsuIrcConfigurationTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
-            .withUserConfiguration(OsuIrcConfiguration.class, OsuChatHandlerService.class);
+            .withUserConfiguration(OsuIrcConfiguration.class);
 
     @Test
     void failsFastWhenCredentialsAreMissing() {
@@ -57,7 +57,7 @@ class OsuIrcConfigurationTest {
                 .withPropertyValues("osu.irc.username=someone", "osu.irc.password=secret").run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context.getBeansOfType(IrcMessageListener.class))
-                            .containsOnlyKeys("osuChatHandlerService", "consoleMessageListener");
+                            .containsOnlyKeys("consoleMessageListener");
                 });
     }
 

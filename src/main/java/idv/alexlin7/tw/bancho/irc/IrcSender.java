@@ -1,4 +1,4 @@
-package idv.alexlin7.tw.bancho;
+package idv.alexlin7.tw.bancho.irc;
 
 /**
  * 對外送訊的介面。業務層（例如 handler）依賴這個介面而不是 {@link OsuIrcClient}，

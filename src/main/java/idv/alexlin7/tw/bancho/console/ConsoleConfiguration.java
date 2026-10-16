@@ -11,7 +11,7 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import idv.alexlin7.tw.bancho.IrcSender;
+import idv.alexlin7.tw.bancho.irc.IrcSender;
 
 /**
  * 終端機前端：印出收到的訊息、讀取鍵盤輸入送出。設 {@code bancho.console.enabled=false} 可關閉。

@@ -1,4 +1,4 @@
-package idv.alexlin7.tw.bancho;
+package idv.alexlin7.tw.bancho.irc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

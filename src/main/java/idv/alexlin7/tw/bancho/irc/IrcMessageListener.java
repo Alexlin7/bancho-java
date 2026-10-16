@@ -1,4 +1,4 @@
-package idv.alexlin7.tw.bancho;
+package idv.alexlin7.tw.bancho.irc;
 
 /**
  * 收到 PRIVMSG 時的觀察者（Observer）。所有實作此介面的 Spring bean 會自動註冊到 {@link OsuIrcClient}，

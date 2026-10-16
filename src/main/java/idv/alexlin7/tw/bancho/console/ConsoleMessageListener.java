@@ -2,8 +2,8 @@ package idv.alexlin7.tw.bancho.console;
 
 import java.io.PrintStream;
 
-import idv.alexlin7.tw.bancho.IrcMessage;
-import idv.alexlin7.tw.bancho.IrcMessageListener;
+import idv.alexlin7.tw.bancho.irc.IrcMessage;
+import idv.alexlin7.tw.bancho.irc.IrcMessageListener;
 
 /**
  * 把收到的訊息印到終端機：頻道訊息 {@code [#mp_1] 名稱: 內容}，私訊 {@code [PM] 名稱: 內容}。

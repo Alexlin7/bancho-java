@@ -5,25 +5,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import idv.alexlin7.tw.bancho.IrcSender;
+import idv.alexlin7.tw.bancho.irc.RecordingIrcSender;
 
 class ConsoleCommandInterpreterTest {
 
     private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-    private RecordingSender sender;
+    private RecordingIrcSender sender;
     private ConsoleCommandInterpreter interpreter;
 
     @BeforeEach
     void setUp() {
-        sender = new RecordingSender();
+        sender = new RecordingIrcSender();
         interpreter = new ConsoleCommandInterpreter(sender, new PrintStream(buffer, true, StandardCharsets.UTF_8));
     }
 
@@ -108,28 +106,4 @@ class ConsoleCommandInterpreterTest {
         assertThat(output()).isEmpty();
     }
 
-    /**
-     * 記錄呼叫的假 sender；join 不以 # 開頭時比照真實 client 拋出 IllegalArgumentException。
-     */
-    static class RecordingSender implements IrcSender {
-        final List<String> calls = new ArrayList<>();
-
-        @Override
-        public void sendMessage(String target, String message) {
-            calls.add("msg " + target + " " + message);
-        }
-
-        @Override
-        public void join(String channel) {
-            if (!channel.startsWith("#")) {
-                throw new IllegalArgumentException("頻道名稱必須以 # 開頭：" + channel);
-            }
-            calls.add("join " + channel);
-        }
-
-        @Override
-        public void part(String channel) {
-            calls.add("part " + channel);
-        }
-    }
 }

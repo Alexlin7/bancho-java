@@ -8,7 +8,7 @@ import java.nio.charset.StandardCharsets;
 
 import org.junit.jupiter.api.Test;
 
-import idv.alexlin7.tw.bancho.IrcMessage;
+import idv.alexlin7.tw.bancho.irc.IrcMessage;
 
 class ConsoleMessageListenerTest {
 

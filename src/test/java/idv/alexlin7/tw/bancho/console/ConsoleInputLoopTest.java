@@ -12,14 +12,15 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
-import idv.alexlin7.tw.bancho.IrcSender;
+import idv.alexlin7.tw.bancho.irc.IrcSender;
+import idv.alexlin7.tw.bancho.irc.RecordingIrcSender;
 
 class ConsoleInputLoopTest {
 
     @Test
     void feedsEveryInputLineToInterpreterUntilEof() throws Exception {
         CountDownLatch sent = new CountDownLatch(2);
-        IrcSender sender = new ConsoleCommandInterpreterTest.RecordingSender() {
+        IrcSender sender = new RecordingIrcSender() {
             @Override
             public void sendMessage(String target, String message) {
                 super.sendMessage(target, message);
@@ -34,7 +35,7 @@ class ConsoleInputLoopTest {
             loop.start();
             assertThat(sent.await(3, TimeUnit.SECONDS)).isTrue();
         }
-        assertThat(((ConsoleCommandInterpreterTest.RecordingSender) sender).calls)
+        assertThat(((RecordingIrcSender) sender).calls)
                 .containsExactly("msg BanchoBot !mp make room", "msg BanchoBot !mp close");
     }
 }

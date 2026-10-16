@@ -1,4 +1,4 @@
-package idv.alexlin7.tw.bancho;
+package idv.alexlin7.tw.bancho.irc;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -21,7 +21,7 @@ import java.util.function.Predicate;
 /**
  * 測試用的最小 IRC server：記錄 client 送來的每一行，並可主動推送訊息或斷線。
  */
-final class FakeIrcServer implements AutoCloseable {
+public final class FakeIrcServer implements AutoCloseable {
 
     private final ServerSocket serverSocket;
     private final BlockingQueue<String> received = new LinkedBlockingQueue<>();
@@ -33,34 +33,34 @@ final class FakeIrcServer implements AutoCloseable {
     private volatile Consumer<FakeIrcServer> onConnect = server -> {
     };
 
-    FakeIrcServer() throws IOException {
+    public FakeIrcServer() throws IOException {
         serverSocket = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
         Thread.ofPlatform().daemon().name("fake-irc-accept").start(this::acceptLoop);
     }
 
-    int port() {
+    public int port() {
         return serverSocket.getLocalPort();
     }
 
-    int connectionCount() {
+    public int connectionCount() {
         return connectionCount.get();
     }
 
     /**
      * client 主動送 PING 時自動回 PONG。
      */
-    void answerPing() {
+    public void answerPing() {
         this.answerPing = true;
     }
 
     /**
      * 每次有新連線時執行（例如回 464 後斷線）。
      */
-    void onConnect(Consumer<FakeIrcServer> action) {
+    public void onConnect(Consumer<FakeIrcServer> action) {
         this.onConnect = action;
     }
 
-    synchronized void send(String line) {
+    public synchronized void send(String line) {
         try {
             writer.write(line + "\r\n");
             writer.flush();
@@ -69,11 +69,11 @@ final class FakeIrcServer implements AutoCloseable {
         }
     }
 
-    void welcome() {
+    public void welcome() {
         send(":cho.ppy.sh 001 test_user :Welcome to the osu!Bancho.");
     }
 
-    void dropConnection() {
+    public void dropConnection() {
         try {
             current.close();
         } catch (IOException e) {
@@ -84,21 +84,21 @@ final class FakeIrcServer implements AutoCloseable {
     /**
      * 等待新連線，回傳是否在時限內出現。
      */
-    boolean awaitConnection(Duration timeout) throws InterruptedException {
+    public boolean awaitConnection(Duration timeout) throws InterruptedException {
         return connectionTimes.poll(timeout.toMillis(), TimeUnit.MILLISECONDS) != null;
     }
 
     /**
      * 等待並回傳下一個新連線的時間點（nanoTime），逾時回傳 null。
      */
-    Long awaitConnectionTime(Duration timeout) throws InterruptedException {
+    public Long awaitConnectionTime(Duration timeout) throws InterruptedException {
         return connectionTimes.poll(timeout.toMillis(), TimeUnit.MILLISECONDS);
     }
 
     /**
      * 等待第一行符合條件的訊息（略過不符合的），逾時回傳 null。
      */
-    String awaitLine(Predicate<String> condition, Duration timeout) throws InterruptedException {
+    public String awaitLine(Predicate<String> condition, Duration timeout) throws InterruptedException {
         long deadline = System.nanoTime() + timeout.toNanos();
         long remaining;
         while ((remaining = deadline - System.nanoTime()) > 0) {
@@ -110,7 +110,7 @@ final class FakeIrcServer implements AutoCloseable {
         return null;
     }
 
-    String awaitLine(String exact, Duration timeout) throws InterruptedException {
+    public String awaitLine(String exact, Duration timeout) throws InterruptedException {
         return awaitLine(exact::equals, timeout);
     }
 

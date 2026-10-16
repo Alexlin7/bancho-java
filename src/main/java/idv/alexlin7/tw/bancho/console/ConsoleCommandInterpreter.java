@@ -3,7 +3,7 @@ package idv.alexlin7.tw.bancho.console;
 import java.io.PrintStream;
 import java.util.Locale;
 
-import idv.alexlin7.tw.bancho.IrcSender;
+import idv.alexlin7.tw.bancho.irc.IrcSender;
 
 /**
  * 解析終端機輸入並透過 {@link IrcSender} 送出。只由單一 thread 呼叫（{@link ConsoleInputLoop}）。
