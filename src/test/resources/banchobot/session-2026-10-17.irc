@@ -1,0 +1,30 @@
+# 使用者 2026-10-17 以 Spring Shell 實測的 BanchoBot 原文，依原順序；私訊對象統一為 test_user。
+:BanchoBot!cho@ppy.sh PRIVMSG test_user :Created the tournament match https://osu.ppy.sh/mp/122022152 mp測試です
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Invited Alexlin86 to the room
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Alexlin86 joined in slot 1.
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Changed beatmap to https://osu.ppy.sh/b/2160012 Kaneko Chiharu - iLLness LiLin
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Disabled all mods, disabled FreeMod
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Enabled Hidden, disabled FreeMod
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Enabled NoFail, Hidden, disabled FreeMod
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Countdown ends in 10 seconds
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Countdown ends in 5 seconds
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Countdown ends in 4 seconds
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Countdown ends in 3 seconds
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Countdown ends in 2 seconds
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Countdown ends in 1 second
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Countdown finished
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Changed the match password
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Room name: mp測試です, History: https://osu.ppy.sh/mp/122022152
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Beatmap: https://osu.ppy.sh/b/2160012 Kaneko Chiharu - iLLness LiLin
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Team mode: HeadToHead, Win condition: Score
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Active mods: NoFail, Hidden
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Players: 1
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Slot 1  Not Ready https://osu.ppy.sh/u/4841753 Alexlin86       
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :The match has started!
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Started the match
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Aborted the match
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :Changed beatmap to https://osu.ppy.sh/b/2453358 Minato Aqua - Shiroi Yuki no Princess wa
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :User not found: alexlin7
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :You have too many referees! Remove some to add new ones.
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :User not found: 2548278
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022152 :User not found: _AppleCat_

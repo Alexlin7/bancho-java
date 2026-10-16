@@ -18,6 +18,14 @@ public sealed interface MatchEvent {
     record MatchClosed(long matchId) implements MatchEvent {
     }
 
+    /** The match has started! */
+    record MatchStarted(long matchId) implements MatchEvent {
+    }
+
+    /** Aborted the match */
+    record MatchAborted(long matchId) implements MatchEvent {
+    }
+
     /** Invited {username} to the room */
     record PlayerInvited(long matchId, String username) implements MatchEvent {
     }

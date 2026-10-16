@@ -11,6 +11,8 @@ import idv.alexlin7.tw.bancho.match.event.MatchEvent;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.BeatmapChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchClosed;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchCreated;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchStarted;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchAborted;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.ModsChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerInvited;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerJoined;
@@ -31,14 +33,23 @@ final class BanchoBotParser {
     private static final Pattern MATCH_CREATED =
             Pattern.compile("Created the tournament match https://osu\\.ppy\\.sh/mp/(\\d+) (.+)");
 
-    /** !mp settings 回覆中刻意不產生事件的行。 */
+    /** 已知但刻意不產生事件的頻道回覆。 */
     private static final List<Pattern> IGNORED = List.of(
             Pattern.compile("Room name: .+"),
             Pattern.compile("Team mode: .+"),
-            Pattern.compile("Players: \\d+"));
+            Pattern.compile("Players: \\d+"),
+            Pattern.compile("Started the match"),
+            Pattern.compile("Countdown ends in \\d+ seconds?"),
+            Pattern.compile("Countdown finished"),
+            Pattern.compile("Changed the match password"),
+            Pattern.compile("Active mods: .+"));
 
     private static final List<Rule> CHANNEL_RULES = List.of(
             new Rule("Closed the match", (id, m) -> new MatchClosed(id)),
+            new Rule("The match has started!", (id, m) -> new MatchStarted(id)),
+            new Rule("Aborted the match", (id, m) -> new MatchAborted(id)),
+            new Rule("Disabled all mods, (enabled|disabled) FreeMod",
+                    (id, m) -> new ModsChanged(id, List.of(), "enabled".equals(m.group(1)))),
             new Rule("Invited (.+) to the room", (id, m) -> new PlayerInvited(id, m.group(1))),
             new Rule("(.+?) joined in slot (\\d+)\\.",
                     (id, m) -> new PlayerJoined(id, m.group(1), Integer.parseInt(m.group(2)))),
