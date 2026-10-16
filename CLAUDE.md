@@ -34,7 +34,7 @@ OSU_IRC_USERNAME=...  OSU_IRC_PASSWORD=...
 
 ## 架構
 
-依功能分 package，依賴方向只能是 `console → match → irc`（`irc` 不認識房間，`match` 不認識前端）。只在 feature 內使用的類別設為 package-private。
+依功能分 package，依賴方向只能是 `shell → match → irc`（`irc` 不認識房間，`match` 不認識前端）。只在 feature 內使用的類別設為 package-private。
 
 ### `irc`：IRC 連線核心
 
@@ -46,7 +46,7 @@ OSU_IRC_USERNAME=...  OSU_IRC_PASSWORD=...
 - **`IrcText`**：出站訊息會把 CR/LF/NUL 換成空白，並依 UTF-8 截到 510 bytes。target 含換行時直接拋出 `IllegalArgumentException`。
 - **`IrcMessageListener`（Observer）**：收訊介面。所有實作此介面的 Spring bean 會由 `OsuIrcConfiguration` 透過 `ObjectProvider.orderedStream()` 自動註冊進 client（順序依 `@Order`）。
 - **`IrcSender`**：送訊介面（`sendMessage` / `join` / `part`）。不是 listener 的 bean 可以直接注入；listener 要回話時則注入 `ObjectProvider<IrcSender>`，因為直接注入會和 client 的 `@Bean` 方法形成循環依賴，Boot 預設禁止。
-- **`OsuIrcConfiguration`**：註冊 client bean，並在 `ApplicationReadyEvent` 之後才 `start()`。
+- **`OsuIrcConfiguration`** / **`OsuIrcLifecycle`**：註冊 client bean，以 `SmartLifecycle` 在 context refresh 完成時連線、關閉時送 QUIT。不能改回 `ApplicationReadyEvent`：Spring Shell 以 `ApplicationRunner` 佔住 main thread，ready 事件要到 `quit` 之後才會發生。
 
 ### `match`：多人房
 
@@ -58,22 +58,47 @@ OSU_IRC_USERNAME=...  OSU_IRC_PASSWORD=...
 
 Spring 事件預設同步在發布者的 thread（IRC dispatcher）上執行，所以所有 `@EventListener` 依訊息到達順序處理；耗時的 listener 要自行轉交其他 thread。
 
-### `observability`、`console`
+### `match/preset`：房間設定範本
 
-- **`observability`**：OpenTelemetry log appender 的安裝（見上方「指令」）。
-- **`console`**：終端機前端。`ConsoleMessageListener` 把收到的訊息印到 stdout；`ConsoleInputLoop` 讀 stdin，交給 `ConsoleCommandInterpreter`：`/target`、`/msg`、`/join`、`/part`、`/make <房名>`、`/rooms`、`/help`，不以 `/` 開頭的文字送給目前對象。設 `bancho.console.enabled=false` 可關閉。stdout 是它的正式輸出，所以 `consoleOut` bean 對 S106 加了 suppress。
+`MatchPreset`（`bancho.match.presets.<名稱>.*`）：`team-mode`、`score-mode`、`size`（三者必須一起設定）、`password`、`mods`、`beatmap`、`referees`、`invite`，都可省略。`MatchRoom.apply(MatchPreset)` 依 set → password → mods → map → addref → invite 送出，未填的跳過。
 
-訊息流向：Bancho → connection thread（解析）→ inbound queue → dispatcher → 各 `IrcMessageListener`（`BanchoBotListener` → Spring 事件 → `MatchService`）→ `IrcSender` → outbound queue → sender thread → Bancho。
+```yaml
+bancho:
+  match:
+    presets:
+      practice:
+        team-mode: 0
+        score-mode: 3
+        size: 2
+        mods: [HD, HR]
+        invite: [Alexlin86]
+```
 
-`application.properties` 中的 `spring.main.keep-alive=true` 不能拿掉：所有工作都在 virtual thread（daemon）上跑，沒有這個設定，JVM 啟動完就會直接結束。
+### `shell`：Spring Shell 前端
+
+- **`MatchCommands`**（`make [--preset]`、`attach`、`use`、`rooms`、`invite`、`map`、`mods`、`set`、`start [--delay]`、`timer [--seconds]`、`abort`、`close`、`settings`、`password [--value]`、`addref`）與 **`ChatCommands`**（`say`、`msg`）。房間指令預設作用在 **`ShellSession`** 的目前房間，`--room <房號>` 可指定其他房間；由 `RoomResolver` 解析房間，參數錯誤一律轉成 `錯誤：...` 文字，不讓例外冒到 shell。
+- **`ShellOutput`**：有 JLine `LineReader` 時用 `printAbove`，訊息印在輸入行上方。**`ShellMessagePrinter`** 把收到的 IRC 訊息印出來。
+- **`ShellCompletions`**：`CompletionProvider` bean（`roomCompletion`、`roomOptionCompletion`、`userCompletion`、`modsCompletion`、`makeCompletion`），名稱即 `@Command(completionProvider = ...)` 的值。Spring Shell 會自己補選項名稱，provider 只給值。**`KnownUsers`** 收集房間事件、私訊與範本名單中的使用者名稱。
+- 內建 `help`、`quit`。Tab 補全要在真正的終端機（Windows Terminal、IntelliJ 的 Terminal 分頁），IntelliJ 的 Run 視窗沒有補全。
+
+### `observability`
+
+OpenTelemetry log appender 的安裝（見上方「指令」）。
+
+訊息流向：Bancho → connection thread（解析）→ inbound queue → dispatcher → 各 `IrcMessageListener`（`BanchoBotListener` → Spring 事件 → `MatchService`、`KnownUsers`；`ShellMessagePrinter`）→ `IrcSender` → outbound queue → sender thread → Bancho。
+
+`application.properties` 中的 `spring.main.keep-alive=false`：互動 shell 佔住 main thread，設成 `true` 時 `quit` 後 JVM 不會結束。日後若有不開 shell 的執行方式（例如只跑 Discord），要改回 `true`，否則所有工作都在 daemon virtual thread 上，JVM 啟動完就會結束。`spring.shell.context.close=true` 會讓 Boot 在 context 已關閉後發佈 ready 事件而 exit 1，不要用。
 
 設計文件與實作計畫在 `docs/superpowers/specs/`、`docs/superpowers/plans/`。
 
 ## 慣例
 
-- 一律用 Lombok `@Slf4j` 記 log，不要用 `System.out` / `System.err`。log 前綴依 feature：`[osu! IRC]`、`[match]`、`[console]`。需要可查詢的欄位時用 SLF4J key-value API（`log.atInfo().addKeyValue(...)`），OTel 會轉成 attribute。
+- 一律用 Lombok `@Slf4j` 記 log，不要用 `System.out` / `System.err`。log 前綴依 feature：`[osu! IRC]`、`[match]`、`[shell]`。需要可查詢的欄位時用 SLF4J key-value API（`log.atInfo().addKeyValue(...)`），OTel 會轉成 attribute。
 - BanchoBot 的真實樣本放在 `src/test/resources/banchobot/`（`.irc` 檔的行尾空白是原文的一部分）。新增解析規則前先加樣本與測試，不要憑記憶寫格式。`MatchReplayIntegrationTest` 會把樣本整段回放進系統。
 - 會被 SonarQube 掃描：`InterruptedException` 要重設中斷旗標，資源用 try-with-resources 關閉，測試避免 `Thread.sleep`（改用 `FakeIrcServer.awaitLine` / `awaitConnection` 這類有時限的等待）。
+- 測試不得啟動互動 shell：test 的 `application.properties` 設 `spring.shell.interactive.enabled=false`，`src/test/.../TestShellRunnerConfiguration` 以空的 `springShellApplicationRunner` 取代 shell runner，並把 JLine 換成 dumb terminal（測試 JVM 沒有主控台，偵測系統 terminal 要約 40 秒）。它放在根 package，所以每個 `@SpringBootTest` 都會掃描到。要經由真正的 parser / registry 測指令時，用 `new ShellTestClient(commandParser, commandRegistry)`。
+- 使用 `ApplicationContextRunner` 載入 `OsuIrcConfiguration` 時，除非就是要測連線，否則要設 `osu.irc.auto-start=false`，否則 `OsuIrcLifecycle` 會在 refresh 時連到真的 cho.ppy.sh。
+- 測試的 OTel service name 是 `bancho-test`，與正式的 `bancho` 區隔。
 - 連線行為的測試使用 `irc.FakeIrcServer`（本機假 IRC server），不要連到真的 Bancho；記錄送訊內容用 `irc.RecordingIrcSender`。
 - 程式註解與 log 訊息使用繁體中文。
 - 尚未驗證：Bancho 是否一定回 464、是否回應 client 主動送的 PING、超過 512 bytes 時的行為。官方文件都沒有寫，目前程式是保守處理。
