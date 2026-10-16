@@ -36,7 +36,7 @@ class MatchCommandsTest {
 
     @Test
     void makeSendsRequestAndUsesRoomWhenCreated() throws Exception {
-        assertThat(commands.make("測試房", null)).contains("已送出開房請求：測試房");
+        assertThat(commands.make(List.of("測試房"), null, null)).contains("已送出開房請求：測試房");
         assertThat(sender.calls).containsExactly("msg BanchoBot !mp make 測試房");
 
         matchService.onMatchEvent(new MatchCreated(122021273, "測試房"));
@@ -48,7 +48,7 @@ class MatchCommandsTest {
 
     @Test
     void makeWithPresetAppliesItAfterCreation() throws Exception {
-        commands.make("r", "practice");
+        commands.make(List.of("r"), "practice", null);
 
         matchService.onMatchEvent(new MatchCreated(5, "r"));
         awaitLastMake();
@@ -59,13 +59,13 @@ class MatchCommandsTest {
 
     @Test
     void unknownPresetRejectedBeforeMake() {
-        assertThat(commands.make("r", "nope")).isEqualTo("找不到範本：nope");
+        assertThat(commands.make(List.of("r"), "nope", null)).isEqualTo("找不到範本：nope");
         assertThat(sender.calls).isEmpty();
     }
 
     @Test
     void makeTimeoutIsPrinted() throws Exception {
-        commands.make("r", null);
+        commands.make(List.of("r"), null, null);
         awaitLastMake();
 
         assertThat(printed).contains("開房逾時：r");
@@ -73,63 +73,63 @@ class MatchCommandsTest {
 
     @Test
     void roomCommandUsesCurrentRoom() {
-        commands.attach(42);
-        commands.use(42);
+        commands.attach(42, null);
+        commands.use(42, null);
 
-        assertThat(commands.invite("Alexlin86", null)).isEqualTo("已送出：!mp invite Alexlin86");
+        assertThat(commands.invite(List.of("Alexlin86"), null, null)).isEqualTo("已送出：!mp invite Alexlin86");
         assertThat(sender.calls).contains("msg #mp_42 !mp invite Alexlin86");
     }
 
     @Test
     void roomOptionOverridesCurrentRoom() {
-        commands.attach(42);
-        commands.attach(7);
-        commands.use(42);
+        commands.attach(42, null);
+        commands.attach(7, null);
+        commands.use(42, null);
 
-        commands.abort(7L);
+        commands.abort(7L, null);
 
         assertThat(sender.calls).contains("msg #mp_7 !mp abort").doesNotContain("msg #mp_42 !mp abort");
     }
 
     @Test
     void roomCommandWithoutCurrentRoomExplains() {
-        assertThat(commands.invite("A", null)).isEqualTo(NO_ROOM);
+        assertThat(commands.invite(List.of("A"), null, null)).isEqualTo(NO_ROOM);
         assertThat(sender.calls).isEmpty();
     }
 
     @Test
     void unknownOrClosedRoomIsReported() {
-        assertThat(commands.invite("A", 999L)).isEqualTo("找不到房間：999");
+        assertThat(commands.invite(List.of("A"), 999L, null)).isEqualTo("找不到房間：999");
 
         matchService.onMatchEvent(new MatchCreated(1, "a"));
         matchService.onMatchEvent(new MatchClosed(1));
         sender.calls.clear();
 
-        assertThat(commands.abort(1L)).isEqualTo("房間已關閉：#mp_1");
+        assertThat(commands.abort(1L, null)).isEqualTo("房間已關閉：#mp_1");
         assertThat(sender.calls).isEmpty();
     }
 
     @Test
     void useRejectsUnknownRoom() {
-        assertThat(commands.use(5)).isEqualTo("找不到房間：5");
+        assertThat(commands.use(5, null)).isEqualTo("找不到房間：5");
         assertThat(session.currentRoom()).isEmpty();
     }
 
     @Test
     void invalidArgumentsBecomeErrorText() {
-        commands.attach(42);
+        commands.attach(42, null);
 
-        assertThat(commands.set(9, 0, 2, 42L)).startsWith("錯誤：");
+        assertThat(commands.set(9, 0, 2, 42L, null)).startsWith("錯誤：");
     }
 
     @Test
     void startAndTimer() {
-        commands.attach(42);
+        commands.attach(42, null);
 
-        commands.start(null, 42L);
-        commands.start(10, 42L);
-        commands.timer(null, 42L);
-        commands.timer(30, 42L);
+        commands.start(null, 42L, null);
+        commands.start(10, 42L, null);
+        commands.timer(null, 42L, null);
+        commands.timer(30, 42L, null);
 
         assertThat(sender.calls).containsSubsequence(
                 "msg #mp_42 !mp start", "msg #mp_42 !mp start 10", "msg #mp_42 !mp timer", "msg #mp_42 !mp timer 30");
@@ -137,16 +137,16 @@ class MatchCommandsTest {
 
     @Test
     void otherRoomCommands() {
-        commands.attach(42);
+        commands.attach(42, null);
         sender.calls.clear();
 
-        commands.map(1502772, 42L);
-        commands.mods(List.of("HD", "HR"), 42L);
-        commands.set(0, 3, 2, 42L);
-        commands.settings(42L);
-        commands.password(null, 42L);
-        commands.addref(List.of("Ref1"), 42L);
-        commands.close(42L);
+        commands.map(1502772, 42L, null);
+        commands.mods(List.of("HD", "HR"), 42L, null);
+        commands.set(0, 3, 2, 42L, null);
+        commands.settings(42L, null);
+        commands.password(null, 42L, null);
+        commands.addref(List.of("Ref1"), 42L, null);
+        commands.close(42L, null);
 
         assertThat(sender.calls).containsExactly(
                 "msg #mp_42 !mp map 1502772", "msg #mp_42 !mp mods HD HR", "msg #mp_42 !mp set 0 3 2",
@@ -156,10 +156,10 @@ class MatchCommandsTest {
 
     @Test
     void roomsListsOpenRooms() {
-        assertThat(commands.rooms()).isEqualTo("目前沒有開著的房間");
+        assertThat(commands.rooms(null)).isEqualTo("目前沒有開著的房間");
 
         matchService.onMatchEvent(new MatchCreated(1, "a"));
 
-        assertThat(commands.rooms()).contains("#mp_1 a");
+        assertThat(commands.rooms(null)).contains("#mp_1 a");
     }
 }

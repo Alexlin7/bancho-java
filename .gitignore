@@ -35,6 +35,8 @@ build/
 ### 本機設定與機密 ###
 # IntelliJ MCP server 的本機 port，因人而異
 .mcp.json
+# Codex 的本機設定（同樣指向本機 IntelliJ MCP port）
+.codex/
 # 憑證請用環境變數；若要放檔案，用這些不會被 commit 的名稱
 .env
 .env.*

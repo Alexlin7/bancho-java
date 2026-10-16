@@ -21,7 +21,7 @@ class ChatCommandsTest {
     void sayJoinsWordsAndSendsToRoom() {
         matchService.attach(42);
 
-        assertThat(commands.say(List.of("gl", "hf"), 42L)).isEqualTo("已送出：gl hf");
+        assertThat(commands.say(List.of("gl", "hf"), 42L, null)).isEqualTo("已送出：gl hf");
         assertThat(sender.calls).contains("msg #mp_42 gl hf");
     }
 
@@ -30,20 +30,20 @@ class ChatCommandsTest {
         matchService.attach(42);
         session.use(42);
 
-        commands.say(List.of("hi"), null);
+        commands.say(List.of("hi"), null, null);
 
         assertThat(sender.calls).contains("msg #mp_42 hi");
     }
 
     @Test
     void msgSendsPrivateMessage() {
-        assertThat(commands.msg("BanchoBot", List.of("!mp", "make", "x"))).isEqualTo("已送出：BanchoBot !mp make x");
+        assertThat(commands.msg("BanchoBot", List.of("!mp", "make", "x"), null)).isEqualTo("已送出：BanchoBot !mp make x");
         assertThat(sender.calls).containsExactly("msg BanchoBot !mp make x");
     }
 
     @Test
     void msgWithoutTextExplains() {
-        assertThat(commands.msg("BanchoBot", List.of())).startsWith("錯誤：");
+        assertThat(commands.msg("BanchoBot", List.of(), null)).startsWith("錯誤：");
         assertThat(sender.calls).isEmpty();
     }
 }
