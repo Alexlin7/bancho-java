@@ -51,7 +51,7 @@ class KnownUsersTest {
     @Test
     void presetNamesAreKnownFromStart() {
         KnownUsers withPresets = new KnownUsers(new MatchPresetProperties(Map.of("p",
-                new MatchPreset(null, null, null, null, null, null, List.of("Ref1"), List.of("Invitee")))));
+                new MatchPreset(null, null, null, null, null, null, List.of("Ref1"), List.of("Invitee"), null))));
 
         assertThat(withPresets.all()).containsExactly("Invitee", "Ref1");
     }

@@ -57,7 +57,11 @@ public final class MatchRoom {
     }
 
     public void map(long beatmapId) {
-        command(mapCommand(beatmapId));
+        map(beatmapId, null);
+    }
+
+    public void map(long beatmapId, GameMode mode) {
+        command(mapCommand(beatmapId, mode));
     }
 
     public void mods(String... mods) {
@@ -114,7 +118,9 @@ public final class MatchRoom {
             commands.add(modsCommand(preset.mods().toArray(String[]::new)));
         }
         if (preset.beatmap() != null) {
-            commands.add(mapCommand(preset.beatmap()));
+            GameMode mode = preset.mode() == null ? null : GameMode.parse(preset.mode())
+                    .orElseThrow(() -> new IllegalArgumentException("不認得的遊玩模式：" + preset.mode()));
+            commands.add(mapCommand(preset.beatmap(), mode));
         }
         if (!preset.referees().isEmpty()) {
             commands.add(addRefCommand(preset.referees().toArray(String[]::new)));
@@ -150,8 +156,8 @@ public final class MatchRoom {
         return MP + "set " + teamMode + " " + scoreMode + " " + size;
     }
 
-    private static String mapCommand(long beatmapId) {
-        return MP + "map " + beatmapId;
+    private static String mapCommand(long beatmapId, GameMode mode) {
+        return MP + "map " + beatmapId + (mode == null ? "" : " " + mode.id());
     }
 
     private static String modsCommand(String... mods) {

@@ -28,7 +28,7 @@ class MatchCommandsTest {
     private final List<String> printed = Collections.synchronizedList(new ArrayList<>());
     private final MatchCommands commands = new MatchCommands(matchService, session, printed::add,
             new MatchPresetProperties(Map.of("practice",
-                    new MatchPreset(0, 3, 2, null, List.of("HD"), null, null, null))));
+                    new MatchPreset(0, 3, 2, null, List.of("HD"), null, null, null, null))));
 
     private void awaitLastMake() throws Exception {
         commands.lastMake().handle((room, error) -> null).get(2, TimeUnit.SECONDS);

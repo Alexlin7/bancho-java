@@ -84,7 +84,7 @@ class ShellCompletionsTest {
     @Test
     void presetOptionIsCompletedWithPresetNames() {
         var presets = new MatchPresetProperties(Map.of("practice",
-                new MatchPreset(null, null, null, null, List.of("HD"), null, null, null)));
+                new MatchPreset(null, null, null, null, List.of("HD"), null, null, null, null)));
         var context = new CompletionContext(List.of("make", "r", "--preset", "pr"), 3, 2, null,
                 CommandOption.with().longName("preset").build());
 
