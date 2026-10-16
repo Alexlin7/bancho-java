@@ -128,6 +128,23 @@ class ShellCommandParsingTest {
     }
 
     @Test
+    void mpForwardsAllArguments() throws Exception {
+        run("mp host \"-SH-\" --room 42");
+        run("mp kick Mr Tester --room 42");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp host -SH-", "msg #mp_42 !mp kick Mr Tester");
+    }
+
+    @Test
+    void mpRejectsCreationAndMasksPassword() throws Exception {
+        assertThat(run("mp --room 42")).startsWith("錯誤：");
+        assertThat(run("mp make x --room 42")).contains("開房請用 make");
+        assertThat(run("mp MakePrivate x --room 42")).contains("開房請用 make");
+        assertThat(sender.calls).isEmpty();
+        assertThat(run("mp password secret --room 42")).isEqualTo("已送出：!mp password ***");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp password secret");
+    }
+
+    @Test
     void quotedChatTextIsSentAsIs() throws Exception {
         run("say \"score was -5 lol\" --room 42");
 

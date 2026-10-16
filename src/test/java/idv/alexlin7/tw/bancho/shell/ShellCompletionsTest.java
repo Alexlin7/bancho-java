@@ -123,6 +123,16 @@ class ShellCompletionsTest {
     }
 
     @Test
+    void mpCompletesOnlyFirstPositionalArgument() {
+        var provider = completions.mpCompletion(matchService);
+        assertThat(values(provider, typing("mp", "h"))).containsExactly("host");
+        assertThat(values(provider, typing("mp", "host", ""))).isEmpty();
+        assertThat(values(provider, typing("mp", "--room", "42", "h"))).containsExactly("host");
+        matchService.attach(7);
+        assertThat(values(provider, typingRoomOption("mp", "host", "--room", ""))).containsExactly("7");
+    }
+
+    @Test
     void roomOptionCompletionSuggestsNothingForPrimaryArgument() {
         matchService.onMatchEvent(new MatchCreated(7, "x"));
 

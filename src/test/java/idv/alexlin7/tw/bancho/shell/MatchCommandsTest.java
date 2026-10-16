@@ -173,6 +173,35 @@ class MatchCommandsTest {
     }
 
     @Test
+    void mpForwardsArguments() {
+        matchService.attach(42);
+        sender.calls.clear();
+        assertThat(commands.mp(List.of("host", "Alexlin86"), 42L, null)).isEqualTo("已送出：!mp host Alexlin86");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp host Alexlin86");
+    }
+
+    @Test
+    void mpRejectsMissingArgumentsAndRoomCreation() {
+        matchService.attach(42);
+        sender.calls.clear();
+        assertThat(commands.mp(List.of(), 42L, null)).isEqualTo("錯誤：請輸入 !mp 之後的指令，例如 mp host Alexlin86");
+        for (String subcommand : List.of("make", "MAKE", "MakePrivate")) {
+            assertThat(commands.mp(List.of(subcommand, "x"), 42L, null)).isEqualTo("錯誤：開房請用 make 指令");
+        }
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void mpMasksPasswordReply() {
+        matchService.attach(42);
+        sender.calls.clear();
+        assertThat(commands.mp(List.of("password", "secret"), 42L, null))
+                .isEqualTo("已送出：!mp password ***").doesNotContain("secret");
+        assertThat(commands.mp(List.of("PaSsWoRd", "secret"), 42L, null)).doesNotContain("secret");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp password secret", "msg #mp_42 !mp PaSsWoRd secret");
+    }
+
+    @Test
     void roomsListsOpenRooms() {
         assertThat(commands.rooms(null)).isEqualTo("目前沒有開著的房間");
 

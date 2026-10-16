@@ -29,6 +29,7 @@ class MatchRoomTest {
                 Arguments.of((Consumer<MatchRoom>) r -> r.map(1502772), "!mp map 1502772"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.map(2453358, GameMode.MANIA), "!mp map 2453358 3"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.map(2453358, null), "!mp map 2453358"),
+                Arguments.of((Consumer<MatchRoom>) r -> r.raw(" host Alexlin86 "), "!mp host Alexlin86"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.mods("HD", "HR"), "!mp mods HD HR"),
                 Arguments.of((Consumer<MatchRoom>) MatchRoom::start, "!mp start"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.start(Duration.ofSeconds(10)), "!mp start 10"),
@@ -68,6 +69,8 @@ class MatchRoomTest {
                 () -> target.set(0, 0, 17),
                 () -> target.mods("HD HR"),
                 () -> target.mods(),
+                () -> target.raw(" "),
+                () -> target.raw(null),
                 () -> target.invite(" "),
                 () -> target.addRef(),
                 () -> target.start(Duration.ofSeconds(-1)));
@@ -104,6 +107,7 @@ class MatchRoomTest {
         room.apply(new MatchClosed(123));
 
         assertThatThrownBy(() -> room.invite("A")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> room.raw("host x")).isInstanceOf(IllegalStateException.class);
         assertThat(sender.calls).isEmpty();
     }
 

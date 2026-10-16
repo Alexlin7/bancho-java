@@ -133,6 +133,14 @@ public final class MatchRoom {
         command(MP + "settings");
     }
 
+    /** 轉送尚未包裝的 BanchoBot 子指令。 */
+    public void raw(String arguments) {
+        if (arguments == null || arguments.isBlank()) {
+            throw new IllegalArgumentException("指令不可為空白");
+        }
+        command(MP + arguments.strip());
+    }
+
     /** 在房間頻道說一般的話。 */
     public void say(String text) {
         command(text);

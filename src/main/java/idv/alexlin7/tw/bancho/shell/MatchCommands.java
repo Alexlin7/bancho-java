@@ -252,6 +252,29 @@ public class MatchCommands {
         return invalid != null ? invalid : rooms.onRoom(room, action);
     }
 
+    @Command(name = "mp", group = GROUP, completionProvider = "mpCompletion",
+            description = "轉送任意 !mp 指令到房間（例如 mp host 玩家）；以 - 開頭的字請用雙引號包起來")
+    public String mp(@Arguments List<String> words,
+                     @Option(longName = ROOM, description = ROOM_OPTION) Long room,
+                     CommandContext context) {
+        String invalid = InputGuard.check(context, InputGuard.ANY, ROOM);
+        if (invalid != null) {
+            return invalid;
+        }
+        String arguments = InputGuard.join(words);
+        if (arguments.isEmpty()) {
+            return "錯誤：請輸入 !mp 之後的指令，例如 mp host Alexlin86";
+        }
+        String subcommand = arguments.split("\\s+", 2)[0];
+        if ("make".equalsIgnoreCase(subcommand) || "makeprivate".equalsIgnoreCase(subcommand)) {
+            return "錯誤：開房請用 make 指令";
+        }
+        return rooms.onRoom(room, r -> {
+            r.raw(arguments);
+            return SENT + "!mp " + ("password".equalsIgnoreCase(subcommand) ? "password ***" : arguments);
+        });
+    }
+
     private void applyPreset(MatchRoom room, String name, MatchPreset template) {
         if (template == null) {
             return;
