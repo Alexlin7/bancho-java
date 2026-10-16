@@ -12,6 +12,7 @@ import org.springframework.shell.core.command.completion.CompletionProposal;
 import org.springframework.shell.core.command.completion.CompletionProvider;
 
 import idv.alexlin7.tw.bancho.match.MatchRoom;
+import idv.alexlin7.tw.bancho.match.GameMode;
 import idv.alexlin7.tw.bancho.match.MatchService;
 import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
 
@@ -64,6 +65,31 @@ class ShellCompletions {
     CompletionProvider modsCompletion(MatchService matchService) {
         return withRoomOption(matchService,
                 context -> filter(MODS.stream().map(CompletionProposal::new).toList(), context));
+    }
+
+    @Bean
+    CompletionProvider mapCompletion(MatchService matchService) {
+        return withRoomOption(matchService, context -> positionalIndex(context) == 1
+                ? filter(List.of(GameMode.values()).stream()
+                        .map(mode -> new CompletionProposal(mode.name().toLowerCase(Locale.ROOT))
+                                .description(Integer.toString(mode.id())))
+                        .toList(), context)
+                : List.of());
+    }
+
+    /** 選項及其值不佔位置參數；words[0] 是指令名稱。 */
+    private static int positionalIndex(CompletionContext context) {
+        int position = 0;
+        List<String> words = context.getWords();
+        for (int i = 1; i < context.getWordIndex(); i++) {
+            String word = words.get(i);
+            if ("--room".equals(word)) {
+                i++;
+            } else if (!word.startsWith("-")) {
+                position++;
+            }
+        }
+        return position;
     }
 
     private static CompletionProvider withRoomOption(MatchService matchService,

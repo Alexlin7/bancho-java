@@ -92,6 +92,37 @@ class ShellCompletionsTest {
     }
 
     @Test
+    void mapCompletionOffersModeNamesForSecondArgument() {
+        var provider = completions.mapCompletion(matchService);
+        var proposals = provider.apply(typing("map", "2453358", ""));
+        assertThat(proposals).extracting(CompletionProposal::value).containsExactly("osu", "taiko", "catch", "mania");
+        assertThat(proposals).extracting(CompletionProposal::description).containsExactly("0", "1", "2", "3");
+        assertThat(values(provider, typing("map", "2453358", "MA"))).containsExactly("mania");
+    }
+
+    @Test
+    void mapCompletionCountsOnlyPositionalWords() {
+        var provider = completions.mapCompletion(matchService);
+        assertThat(values(provider, typing("map", "--room", "42", "2453358", "")))
+                .containsExactly("osu", "taiko", "catch", "mania");
+        assertThat(values(provider, typing("map", "--room=42", "2453358", "")))
+                .containsExactly("osu", "taiko", "catch", "mania");
+        assertThat(values(provider, typing("map", "--room", "42", ""))).isEmpty();
+    }
+
+    @Test
+    void mapCompletionOffersNothingForBeatmapId() {
+        assertThat(values(completions.mapCompletion(matchService), typing("map", ""))).isEmpty();
+    }
+
+    @Test
+    void mapCompletionStillCompletesRoomOption() {
+        matchService.attach(7);
+        assertThat(values(completions.mapCompletion(matchService), typingRoomOption("map", "1", "--room", "")))
+                .containsExactly("7");
+    }
+
+    @Test
     void roomOptionCompletionSuggestsNothingForPrimaryArgument() {
         matchService.onMatchEvent(new MatchCreated(7, "x"));
 
