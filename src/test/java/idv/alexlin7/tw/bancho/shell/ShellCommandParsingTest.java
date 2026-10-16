@@ -45,6 +45,9 @@ class ShellCommandParsingTest {
     @Autowired
     private MatchService matchService;
 
+    @Autowired
+    private ShellSession session;
+
     private ShellTestClient client;
 
     @BeforeEach
@@ -142,6 +145,58 @@ class ShellCommandParsingTest {
         assertThat(sender.calls).isEmpty();
         assertThat(run("mp password secret --room 42")).isEqualTo("已送出：!mp password ***");
         assertThat(sender.calls).containsExactly("msg #mp_42 !mp password secret");
+    }
+
+    @Test
+    void quotedDashNameIsSent() throws Exception {
+        run("addref \"-SH-\" --room 42");
+        run("invite \"-SH-\" --room 42");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp addref -SH-", "msg #mp_42 !mp invite -SH-");
+    }
+
+    @Test
+    void doubleDashEscapesNameInCurrentRoom() throws Exception {
+        session.use(42);
+        run("addref -- -SH-");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp addref -SH-");
+    }
+
+    @Test
+    void roomAfterDoubleDashIsRejected() throws Exception {
+        matchService.attach(7);
+        session.use(7);
+        sender.calls.clear();
+        assertThat(run("addref -- -SH- --room 42")).contains("addref \"-SH-\" --room 42");
+        assertThat(run("invite -- -SH- --room 42")).contains("addref \"-SH-\" --room 42");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void roomEqualsAfterDoubleDashIsRejected() throws Exception {
+        matchService.attach(7);
+        session.use(7);
+        sender.calls.clear();
+        for (String command : java.util.List.of("addref", "invite")) {
+            for (String option : java.util.List.of("--room=42", "--room=")) {
+                assertThat(run(command + " -- -SH- " + option)).startsWith("錯誤：")
+                        .contains("addref \"-SH-\" --room 42");
+            }
+        }
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void unknownOptionMentionsBothEscapes() throws Exception {
+        assertThat(run("say score was -5 lol --room 42")).contains("\"-SH-\"", "-- -SH-");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void helpExplainsEscaping() throws Exception {
+        assertThat(run("help addref")).contains("addref --help");
+        assertThat(run("help invite")).contains("invite --help");
+        assertThat(run("addref --help")).contains("addref \"-SH-\"", "addref -- -SH-");
+        assertThat(run("invite --help")).contains("addref \"-SH-\"", "addref -- -SH-");
     }
 
     @Test

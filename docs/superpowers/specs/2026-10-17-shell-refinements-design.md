@@ -47,7 +47,8 @@
 - `InputGuard` 拒絕未知選項時的錯誤訊息（例如打成 `addref --SH-` 這類被當成長選項的情況）也改成同樣的兩種寫法。
 - `--` 只有緊接在指令後面才有效（實測：`addref --room 42 -- -SH-` 會得到 `Option '-SH-' requires a value`），`--` 之後的 `--room` 或 `--room=42` 會被當成名稱。`invite`、`addref` 收到內容等於 `--room` 或以 `--room=` 開頭的參數（含空值 `--room=`）時回錯誤，不送指令，並提示改用 `addref "-SH-" --room 42`。
 - CLAUDE.md 的 shell 段落補上同一段說明。
-- `userCompletion` 補出以 `-` 開頭的名稱時，候選值本身帶雙引號（`"-SH-"`），Tab 補完就是可以直接執行的寫法。實作時先驗證 JLine 會不會再跳脫引號；會的話就只改說明。
+- `help addref`／`help invite` 只顯示簡短 description；完整說明由 `addref --help`／`invite --help` 顯示，description 導向此寫法。
+- 原規劃讓 `userCompletion` 對 `-` 開頭名稱帶雙引號；實測 JLine 在已輸入開引號時會重複引號，所以依備案只改說明，維持原補全，使用者手動輸入雙引號。
 - 補測試：`ShellCommandParsingTest` 加上 `addref "-SH-" --room 42` → `!mp addref -SH-`。
 
 底線、數字開頭等其他字元不受影響。實測時的 `User not found: _AppleCat_` 是 BanchoBot 的回覆，表示 Bancho 上查無此帳號，不是程式問題。
@@ -158,15 +159,15 @@ mp <BanchoBot 指令與參數…> [--room <房號>]
 | 回放 | `session-2026-10-17.irc` 回放後 mod 清空、slot 與圖正確 |
 | `MatchCommands` | `map 2453358 mania`、`map 2453358 3`、未知模式、多餘參數；`mp` 的轉送、空參數、`make` 拒絕、密碼遮蔽 |
 | `ShellCommandParsingTest` | `map 2453358 2 --room 42` → `msg #mp_42 !mp map 2453358 2`；`addref "-SH-" --room 42` → `!mp addref -SH-`；`mp host "-SH-" --room 42` → `!mp host -SH-`；invite／addref 在 `--` 後帶 `--room 42`、`--room=42` 或 `--room=` 時回錯誤且不送任何指令 |
-| `ShellCompletions` | `map` 第二個參數補出模式名稱；`-` 開頭的名稱補成帶引號的候選值 |
+| `ShellCompletions` | `map` 第二個參數補出模式名稱；JLine 實際輸入流程確認帶引號候選值的限制 |
 | log | 讀取 `src/main/resources/application.properties`（測試 classpath 上的同名檔會遮蔽它，所以直接讀檔）：`logging.threshold.console` 為 WARN；`logging.file.name` 未設環境變數時解析為 `logs/bancho.log`、設了 `BANCHO_LOG_FILE` 時用它的值。實跑驗證使用新的暫存目錄，以 `BANCHO_LOG_FILE` 指向測試專用檔案，確認 exit 0、console 無 INFO、檔案有 INFO；不刪除或覆寫既有 `logs/` |
-| 說明文字 | `invite`、`addref` 的 help 含 `"-SH-"` 與 `-- -SH-` 兩種寫法；未知選項的錯誤訊息含同樣提示 |
+| 說明文字 | `invite --help`、`addref --help` 含 `"-SH-"` 與 `-- -SH-` 兩種寫法，`help <指令>` 導向 `--help`；未知選項的錯誤訊息含同樣提示 |
 
 ## 8. 待驗證事項
 
 | 項目 | 驗證方式 | 結果不如預期時 |
 |---|---|---|
-| JLine 補全時是否會跳脫候選值裡的雙引號 | 實作時以 dumb terminal 的 `LineReader` 測 | 只保留說明文字，不補引號 |
+| JLine 補全時是否會跳脫候選值裡的雙引號 | ✅ 已驗證（2026-10-17）：隔離 xterm 的真實 `LineReader` + `CommandCompleter`；空前綴可用，但 `addref "-S<Tab>` 會變成 `addref ""-SH-"`。`dontQuote` 未被傳遞；dumb terminal 不執行 Tab widget | 採備案：只保留說明文字，不補引號；保留 characterization test |
 | `addref --room 42 -- -SH-` 與 `addref -- -SH- --room 42` 各自怎麼解析 | ✅ 已驗證（2026-10-17）：前者 `Option '-SH-' requires a value`；後者參數為 `[-SH-, --room, 42]` | 說明改為 `--` 只能緊接指令、指定房間用雙引號 |
 | `!mp map <id> <mode>` 後 BanchoBot 的回覆 | 使用者實測 | 有新格式就加入樣本與解析規則 |
 | 比賽正常結束的訊息 | 使用者實測一場打完的比賽 | 之後再加 `MatchFinished` 與狀態 |

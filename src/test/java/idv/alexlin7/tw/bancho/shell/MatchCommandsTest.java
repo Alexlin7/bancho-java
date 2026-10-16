@@ -202,6 +202,15 @@ class MatchCommandsTest {
     }
 
     @Test
+    void nameCommandsRejectRoomWordsBeforeSending() {
+        matchService.attach(42);
+        sender.calls.clear();
+        assertThat(commands.addref(List.of("-SH-", "--room", "7"), 42L, null)).startsWith("錯誤：");
+        assertThat(commands.invite(List.of("-SH-", "--room=7"), 42L, null)).startsWith("錯誤：");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void roomsListsOpenRooms() {
         assertThat(commands.rooms(null)).isEqualTo("目前沒有開著的房間");
 
