@@ -14,10 +14,11 @@ import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerInvited;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerJoined;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerMoved;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.SlotStatus;
+import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
 
 /**
  * 這次執行中看過的使用者名稱，供 invite / addref 的 Tab 補全使用。
- * 只收房間事件裡的玩家與私訊對象，不收頻道裡所有發言者。
+ * 只收房間事件裡的玩家、私訊對象與範本裡的名單，不收頻道裡所有發言者。
  */
 @Component
 public class KnownUsers implements IrcMessageListener {
@@ -26,11 +27,18 @@ public class KnownUsers implements IrcMessageListener {
 
     private final Set<String> names = new ConcurrentSkipListSet<>(String.CASE_INSENSITIVE_ORDER);
 
+    public KnownUsers(MatchPresetProperties presets) {
+        presets.presets().values().forEach(preset -> {
+            preset.invite().forEach(this::add);
+            preset.referees().forEach(this::add);
+        });
+    }
+
     public List<String> all() {
         return List.copyOf(names);
     }
 
-    void add(String name) {
+    private void add(String name) {
         if (name != null && !name.isBlank()) {
             names.add(name.strip());
         }

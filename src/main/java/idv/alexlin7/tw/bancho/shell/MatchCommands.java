@@ -17,6 +17,8 @@ import org.springframework.stereotype.Component;
 import idv.alexlin7.tw.bancho.match.MatchRoom;
 import idv.alexlin7.tw.bancho.match.MatchService;
 import idv.alexlin7.tw.bancho.match.MatchState;
+import idv.alexlin7.tw.bancho.match.preset.MatchPreset;
+import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
 
 /**
  * 房間指令。房間相關的指令預設作用在目前房間，可用 {@code --room <房號>} 指定其他房間。
@@ -33,22 +35,32 @@ public class MatchCommands {
     private final ShellSession session;
     private final ShellOutput out;
     private final RoomResolver rooms;
+    private final MatchPresetProperties presets;
     private volatile CompletableFuture<?> lastMake = CompletableFuture.completedFuture(null);
 
-    public MatchCommands(MatchService matchService, ShellSession session, ShellOutput out) {
+    public MatchCommands(MatchService matchService, ShellSession session, ShellOutput out,
+                         MatchPresetProperties presets) {
         this.matchService = matchService;
+        this.presets = presets;
         this.session = session;
         this.out = out;
         this.rooms = new RoomResolver(matchService, session);
     }
 
-    @Command(name = "make", group = GROUP, description = "開房，成功後切換到該房間")
-    public String make(@Argument(index = 0, description = "房名") String name) {
+    @Command(name = "make", group = GROUP, completionProvider = "makeCompletion",
+            description = "開房，成功後切換到該房間；可用 --preset 套用設定範本")
+    public String make(@Argument(index = 0, description = "房名") String name,
+                       @Option(longName = "preset", description = "設定範本名稱") String preset) {
+        MatchPreset template = preset == null ? null : presets.presets().get(preset);
+        if (preset != null && template == null) {
+            return "找不到範本：" + preset;
+        }
         return RoomResolver.guarded(() -> {
             lastMake = matchService.createMatch(name).whenComplete((room, error) -> {
                 if (error == null) {
                     session.use(room.matchId());
                     out.println("房間已建立：" + room.channel() + " " + name);
+                    applyPreset(room, preset, template);
                 } else if (unwrap(error) instanceof TimeoutException) {
                     out.println("開房逾時：" + name);
                 } else {
@@ -188,6 +200,16 @@ public class MatchCommands {
             r.addRef(usernames.toArray(String[]::new));
             return SENT + "!mp addref " + String.join(" ", usernames);
         });
+    }
+
+    private void applyPreset(MatchRoom room, String name, MatchPreset template) {
+        if (template == null) {
+            return;
+        }
+        out.println(RoomResolver.guarded(() -> {
+            room.apply(template);
+            return "已套用範本：" + name;
+        }));
     }
 
     /** 最近一次 make 的結果處理，供測試等待。 */

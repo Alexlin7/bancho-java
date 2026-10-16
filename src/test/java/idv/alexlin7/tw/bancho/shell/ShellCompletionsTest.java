@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.shell.core.command.CommandOption;
@@ -13,6 +14,8 @@ import org.springframework.shell.core.command.completion.CompletionProvider;
 
 import idv.alexlin7.tw.bancho.irc.RecordingIrcSender;
 import idv.alexlin7.tw.bancho.match.MatchService;
+import idv.alexlin7.tw.bancho.match.preset.MatchPreset;
+import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchClosed;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchCreated;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerJoined;
@@ -20,7 +23,7 @@ import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerJoined;
 class ShellCompletionsTest {
 
     private final MatchService matchService = new MatchService(new RecordingIrcSender(), Duration.ofSeconds(1));
-    private final KnownUsers knownUsers = new KnownUsers();
+    private final KnownUsers knownUsers = new KnownUsers(new MatchPresetProperties(Map.of()));
     private final ShellCompletions completions = new ShellCompletions();
 
     /** 主要參數：最後一個字是正在輸入的字。 */
@@ -76,6 +79,16 @@ class ShellCompletionsTest {
                 .containsExactly("7");
         assertThat(values(completions.roomOptionCompletion(matchService), typingRoomOption("map", "1", "--room", "")))
                 .containsExactly("7");
+    }
+
+    @Test
+    void presetOptionIsCompletedWithPresetNames() {
+        var presets = new MatchPresetProperties(Map.of("practice",
+                new MatchPreset(null, null, null, null, List.of("HD"), null, null, null)));
+        var context = new CompletionContext(List.of("make", "r", "--preset", "pr"), 3, 2, null,
+                CommandOption.with().longName("preset").build());
+
+        assertThat(values(completions.makeCompletion(presets), context)).containsExactly("practice");
     }
 
     @Test
