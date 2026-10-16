@@ -27,6 +27,9 @@ class ShellCompletions {
     static final List<String> MODS = List.of(
             "EZ", "NF", "HT", "HR", "SD", "PF", "DT", "NC", "HD", "FL", "RL", "AP", "SO", "SV2", "Freemod");
 
+    static final List<String> MP_SUBCOMMANDS = List.of(
+            "aborttimer", "clearhost", "host", "kick", "listrefs", "lock", "move", "removeref", "size", "team", "unlock");
+
     private static final String ROOM_OPTION = "room";
     private static final String PRESET_OPTION = "preset";
 
@@ -74,6 +77,13 @@ class ShellCompletions {
                         .map(mode -> new CompletionProposal(mode.name().toLowerCase(Locale.ROOT))
                                 .description(Integer.toString(mode.id())))
                         .toList(), context)
+                : List.of());
+    }
+
+    @Bean
+    CompletionProvider mpCompletion(MatchService matchService) {
+        return withRoomOption(matchService, context -> positionalIndex(context) == 0
+                ? filter(MP_SUBCOMMANDS.stream().map(CompletionProposal::new).toList(), context)
                 : List.of());
     }
 
