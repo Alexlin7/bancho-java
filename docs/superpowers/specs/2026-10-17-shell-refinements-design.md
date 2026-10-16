@@ -45,7 +45,7 @@
   ```
 
 - `InputGuard` 拒絕未知選項時的錯誤訊息（例如打成 `addref --SH-` 這類被當成長選項的情況）也改成同樣的兩種寫法。
-- `--` 只有緊接在指令後面才有效（實測：`addref --room 42 -- -SH-` 會得到 `Option '-SH-' requires a value`），`--` 之後的 `--room` 或 `--room=42` 會被當成名稱。`invite`、`addref` 收到內容等於 `--room` 或以 `--room=` 開頭的參數（含空值 `--room=`）時回錯誤，不送指令，並提示改用 `addref "-SH-" --room 42`。
+- `--` 只有緊接在指令後面才有效（實測：`addref --room 42 -- -SH-` 會得到 `Option '-SH-' requires a value`），`--` 之後的 `--room` 或 `--room=42` 會被當成名稱。`invite`、`addref` 收到內容等於 `--room` 或以 `--room=` 開頭的參數（含空值 `--room=`）時回錯誤，不送指令，並提示保留原操作：`addref "-SH-" --room 42` 或 `invite "-SH-" --room 42`。`invite` 的完整 help 同樣只示範 `invite`，避免誤導成授予裁判。
 - CLAUDE.md 的 shell 段落補上同一段說明。
 - `help addref`／`help invite` 只顯示簡短 description；完整說明由 `addref --help`／`invite --help` 顯示，description 導向此寫法。
 - 原規劃讓 `userCompletion` 對 `-` 開頭名稱帶雙引號；實測 JLine 在已輸入開引號時會重複引號，所以依備案只改說明，維持原補全，使用者手動輸入雙引號。
@@ -178,3 +178,4 @@ mp <BanchoBot 指令與參數…> [--room <房號>]
 - `mvnw.cmd -q package -DskipTests`：exit 0。
 - 停用互動模式與 IRC 自動連線，以假憑證執行 jar 的 `rooms`：exit 0，顯示「目前沒有開著的房間」；獨立暫存目錄中 console 的 INFO 為 0 行、檔案 INFO 為 4 行。未刪除或覆寫專案原有 log。
 - 真實 Bancho 的模式變更與正常比賽結束回覆尚待蒐集，不宣稱已驗證。
+- 獨立 code review 發現共用文案會把 `invite` 的操作建議改成 `addref`；已改為依原指令顯示，真實 parser 的三項回歸測試先確認失敗再修正。

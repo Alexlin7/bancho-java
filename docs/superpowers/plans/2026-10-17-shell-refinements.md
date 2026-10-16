@@ -12,6 +12,8 @@
 
 **執行紀錄（2026-10-17）：** Task 1–6 已實作並各自提交。Task 5 採設計備案，不自動加補全引號：真實 JLine 對已輸入開引號的前綴會重複引號；完整說明由 `addref --help`／`invite --help` 顯示。缺省模式在 Spring Shell 會綁成空字串，實作將空字串與 null 都視為未指定。以下 checkbox 保留原始執行步驟供追溯；驗證結果以提交紀錄與設計文件為準。
 
+**Review 修正：** 原 Task 5 固定共用 `addref` 文案會誤導邀請操作；實際實作改為保留原指令，`invite` 的錯誤與完整 help 皆示範 `invite`，`addref` 示範不變。通用未知選項提示不再指定另一個指令。
+
 ## Global Constraints
 
 - 分支：`feature/match-room-phase2`，每個 task 結束時 commit；commit attribution 只標註實際參與者，不沿用其他模型或 session 的 trailer。

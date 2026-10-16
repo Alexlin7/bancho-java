@@ -121,11 +121,11 @@ public class MatchCommands {
     }
 
     @Command(name = "invite", group = GROUP, completionProvider = "userCompletion",
-            description = "邀請玩家（名稱可含空白）；名稱以 - 開頭時見 invite --help", help = InputGuard.ESCAPE_HELP)
+            description = "邀請玩家（名稱可含空白）；名稱以 - 開頭時見 invite --help", help = InputGuard.INVITE_ESCAPE_HELP)
     public String invite(@Arguments List<String> words,
                          @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                          CommandContext context) {
-        String invalid = InputGuard.rejectRoomAfterDoubleDash(words);
+        String invalid = InputGuard.rejectRoomAfterDoubleDash(words, "invite");
         if (invalid != null) {
             return invalid;
         }
@@ -245,7 +245,7 @@ public class MatchCommands {
     public String addref(@Arguments List<String> usernames,
                          @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                          CommandContext context) {
-        String invalid = InputGuard.rejectRoomAfterDoubleDash(usernames);
+        String invalid = InputGuard.rejectRoomAfterDoubleDash(usernames, "addref");
         if (invalid != null) {
             return invalid;
         }

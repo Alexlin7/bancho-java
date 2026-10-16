@@ -18,13 +18,22 @@ final class InputGuard {
     static final int ANY = -1;
 
     static final String DASH_HINT = "（以 - 開頭的文字會被當成選項：用雙引號包起來，例如 \"-SH-\"；"
-            + "或緊接在指令後面加 --，例如 addref -- -SH-）";
+            + "或緊接在原指令後面加 --，例如 -- -SH-；-- 之後不能再加選項）";
 
     static final String ESCAPE_HELP = """
             名稱以 - 開頭（例如 -SH-）會被當成選項，需要跳脫：
               用雙引號包起來：addref "-SH-"
               或緊接在指令後面加 --：addref -- -SH-（-- 之後的字全部當成名稱，不能再加 --room 或 --room=…）
               要指定房間時用雙引號：addref "-SH-" --room 42
+              單引號沒有作用：'-SH-' 會連引號一起送出
+            看到「Option '-SH-' requires a value」就是這個原因。
+            """;
+
+    static final String INVITE_ESCAPE_HELP = """
+            名稱以 - 開頭（例如 -SH-）會被當成選項，需要跳脫：
+              用雙引號包起來：invite "-SH-"
+              或緊接在指令後面加 --：invite -- -SH-（-- 之後的字全部當成名稱，不能再加 --room 或 --room=…）
+              要指定房間時用雙引號：invite "-SH-" --room 42
               單引號沒有作用：'-SH-' 會連引號一起送出
             看到「Option '-SH-' requires a value」就是這個原因。
             """;
@@ -61,9 +70,9 @@ final class InputGuard {
     }
 
     /** parser 在 -- 後會把房間選項當名稱；拒絕整條指令以免誤送到目前房間。 */
-    static String rejectRoomAfterDoubleDash(List<String> words) {
+    static String rejectRoomAfterDoubleDash(List<String> words, String command) {
         return words.stream().anyMatch(word -> word.equals("--room") || word.startsWith("--room="))
-                ? "錯誤：-- 之後不能再加 --room 或 --room=…；要指定房間請用雙引號，例如 addref \"-SH-\" --room 42"
+                ? "錯誤：-- 之後不能再加 --room 或 --room=…；要指定房間請用雙引號，例如 " + command + " \"-SH-\" --room 42"
                 : null;
     }
 
