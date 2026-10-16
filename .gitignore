@@ -1,0 +1,50 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### 本機設定與機密 ###
+# IntelliJ MCP server 的本機 port，因人而異
+.mcp.json
+# 憑證請用環境變數；若要放檔案，用這些不會被 commit 的名稱
+.env
+.env.*
+application-local.properties
+application-local.yml
+
+### Log ###
+*.log
+logs/
+
+### OS ###
+.DS_Store
+Thumbs.db
