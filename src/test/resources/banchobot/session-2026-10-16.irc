@@ -1,0 +1,22 @@
+# 使用者 2026-10-16 兩次實測的 BanchoBot 原文，依原順序；# 開頭為註解。私訊對象統一為 test_user。
+# 第一次：開房後關房
+:BanchoBot!cho@ppy.sh PRIVMSG test_user :Created the tournament match https://osu.ppy.sh/mp/122021237 測試房
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021237 :Closed the match
+# 第二次
+:BanchoBot!cho@ppy.sh PRIVMSG test_user :Created the tournament match https://osu.ppy.sh/mp/122021273 測試房
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Invited Alexlin86 to the room
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Alexlin86 joined in slot 1.
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Alexlin86 moved to slot 2
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Alexlin86 moved to slot 3
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Alexlin86 left the game.
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Changed match settings to 2 slots, HeadToHead, ScoreV2
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Alexlin86 joined in slot 1.
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Changed beatmap to https://osu.ppy.sh/b/5884441 Keri Hilson - Pretty Girl Rock
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Changed beatmap to https://osu.ppy.sh/b/1502772 Asriel - Kegare Naki Yume
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Room name: 測試房, History: https://osu.ppy.sh/mp/122021273
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Beatmap: https://osu.ppy.sh/b/1502772 Asriel - Kegare Naki Yume
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Team mode: HeadToHead, Win condition: ScoreV2
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Players: 1
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Slot 1  Not Ready https://osu.ppy.sh/u/4841753 Alexlin86       
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Enabled Hidden, HardRock, disabled FreeMod
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122021273 :Closed the match

@@ -677,3 +677,7 @@ ij_shell_use_unix_line_separator = true
 # command/batch/powershell file
 [*.{cmd,bat,ps1}]
 end_of_line = crlf
+
+# BanchoBot 樣本檔：行尾空白是原文的一部分
+[*.irc]
+trim_trailing_whitespace = false
