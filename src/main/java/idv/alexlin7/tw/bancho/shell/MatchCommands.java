@@ -121,10 +121,14 @@ public class MatchCommands {
     }
 
     @Command(name = "invite", group = GROUP, completionProvider = "userCompletion",
-            description = "邀請玩家（名稱可含空白）")
+            description = "邀請玩家（名稱可含空白）；名稱以 - 開頭時見 invite --help", help = InputGuard.ESCAPE_HELP)
     public String invite(@Arguments List<String> words,
                          @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                          CommandContext context) {
+        String invalid = InputGuard.rejectRoomAfterDoubleDash(words);
+        if (invalid != null) {
+            return invalid;
+        }
         String username = InputGuard.join(words);
         return guardedOnRoom(context, InputGuard.ANY, room, r -> {
             r.invite(username);
@@ -236,10 +240,15 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "addref", group = GROUP, completionProvider = "userCompletion", description = "加入裁判")
+    @Command(name = "addref", group = GROUP, completionProvider = "userCompletion",
+            description = "加入裁判；名稱以 - 開頭時見 addref --help", help = InputGuard.ESCAPE_HELP)
     public String addref(@Arguments List<String> usernames,
                          @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                          CommandContext context) {
+        String invalid = InputGuard.rejectRoomAfterDoubleDash(usernames);
+        if (invalid != null) {
+            return invalid;
+        }
         return guardedOnRoom(context, InputGuard.ANY, room, r -> {
             r.addRef(usernames.toArray(String[]::new));
             return SENT + "!mp addref " + String.join(" ", usernames);
