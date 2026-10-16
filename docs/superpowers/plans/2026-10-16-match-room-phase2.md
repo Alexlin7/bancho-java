@@ -46,7 +46,7 @@
 
 ## Task 0 的由來
 
-使用者在 Grafana 看到 `service_name=unknown_service` 的 log，來源都是 `OtelProfileTest`：它啟用 `otel` profile，`./mvnw test` 時真的把 log 和 metrics 送到開發機上的 collector（localhost:4318）；而且 test 的 `application.properties` 遮蔽了 main 的同名檔，沒有 `spring.application.name`，所以 service name 變成 `unknown_service`。測試不該寫入真正的 collector。
+使用者在 Grafana 看到 `service_name=unknown_service` 的 log，來源都是 `OtelProfileTest`：它啟用 `otel` profile，`./mvnw test` 時把 log 和 metrics 送到開發機上的 collector（localhost:4318）；test 的 `application.properties` 遮蔽了 main 的同名檔，沒有 `spring.application.name`，所以 service name 變成 `unknown_service`。使用者決定：測試照常送到 collector，只要用獨立的 service name（`bancho-test`）與正式資料區隔；不要把端點導向沒有服務的 port（會是 anti-pattern）。
 
 ---
 
@@ -70,33 +70,32 @@ src/main/java/idv/alexlin7/tw/bancho/
 
 ---
 
-### Task 0: 測試不得把資料送到真正的 OTel collector
+### Task 0: 測試的 OTel 資料使用獨立的 service name
 
 **Files:**
 - Modify：`src/test/resources/application.properties`、`src/test/java/idv/alexlin7/tw/bancho/observability/OtelProfileTest.java`
 
 - [ ] **Step 1：寫失敗的測試**
 
-`OtelProfileTest` 新增 `exportersPointAtLocalTestEndpointNotTheDeveloperCollector`：注入 `Environment`，斷言 `management.opentelemetry.logging.export.otlp.endpoint` 與 `management.otlp.metrics.export.url` 都不含 `:4318`。另新增 `serviceNameIsSet`：`spring.application.name` 為 `bancho-test`。
+`OtelProfileTest` 新增 `usesTestServiceName`：注入 `Environment`，斷言 `spring.application.name` 為 `bancho-test`。
 
 - [ ] **Step 2：確認測試失敗**
 
-Run: `./mvnw test -Dtest=OtelProfileTest` → 兩個新測試失敗（端點為 `http://localhost:4318/...`、application name 為 null）。
+Run: `./mvnw test -Dtest=OtelProfileTest` → `usesTestServiceName` 失敗（application name 為 null）。
 
 - [ ] **Step 3：修改設定**
 
-- `src/test/resources/application.properties` 加 `spring.application.name=bancho-test`。
-- `OtelProfileTest` 的 `@SpringBootTest(properties = {...})` 把兩個端點改成 `http://127.0.0.1:9/v1/logs`、`http://127.0.0.1:9/v1/metrics`（port 9 沒有服務，送出會失敗但不影響測試；測試只驗證 exporter bean 被建立）。
+- `src/test/resources/application.properties` 加 `spring.application.name=bancho-test`，註解說明「與正式的 bancho 在 OTel 中區隔」。
 
 - [ ] **Step 4：確認測試通過並跑全部測試**
 
-Run: `./mvnw test` → `BUILD SUCCESS`；之後 Grafana 不應再出現新的 `unknown_service` / `bancho-test` log。
+Run: `./mvnw test` → `BUILD SUCCESS`；之後 Grafana 中測試的資料出現在 `service_name="bancho-test"`，不再有新的 `unknown_service`。
 
 - [ ] **Step 5：Commit**
 
 ```bash
 git add -A
-git commit -m "test: OtelProfileTest 不再送資料到開發機的 collector"
+git commit -m "test: 測試的 OTel 資料使用 bancho-test service name"
 ```
 
 ---
