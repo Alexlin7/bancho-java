@@ -7,6 +7,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import idv.alexlin7.tw.bancho.irc.IrcSender;
 import idv.alexlin7.tw.bancho.irc.RecordingIrcSender;
+import idv.alexlin7.tw.bancho.match.MatchService;
 
 class ConsoleInputLoopTest {
 
@@ -27,7 +29,7 @@ class ConsoleInputLoopTest {
                 sent.countDown();
             }
         };
-        var interpreter = new ConsoleCommandInterpreter(sender, new PrintStream(new ByteArrayOutputStream(), true,
+        var interpreter = new ConsoleCommandInterpreter(sender, new MatchService(sender, Duration.ofSeconds(1)), new PrintStream(new ByteArrayOutputStream(), true,
                 StandardCharsets.UTF_8));
         var input = new BufferedReader(new StringReader("/target BanchoBot\n!mp make room\n!mp close\n"));
 

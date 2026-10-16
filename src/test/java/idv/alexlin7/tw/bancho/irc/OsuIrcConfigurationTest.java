@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import idv.alexlin7.tw.bancho.console.ConsoleConfiguration;
+import idv.alexlin7.tw.bancho.match.MatchConfiguration;
 
 class OsuIrcConfigurationTest {
 
@@ -53,7 +54,7 @@ class OsuIrcConfigurationTest {
 
     @Test
     void registersEveryListenerBeanWithoutCircularDependency() {
-        runner.withUserConfiguration(ConsoleConfiguration.class)
+        runner.withUserConfiguration(MatchConfiguration.class, ConsoleConfiguration.class)
                 .withPropertyValues("osu.irc.username=someone", "osu.irc.password=secret").run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context.getBeansOfType(IrcMessageListener.class))
@@ -63,7 +64,7 @@ class OsuIrcConfigurationTest {
 
     @Test
     void consoleCanBeDisabled() {
-        runner.withUserConfiguration(ConsoleConfiguration.class)
+        runner.withUserConfiguration(MatchConfiguration.class, ConsoleConfiguration.class)
                 .withPropertyValues("osu.irc.username=someone", "osu.irc.password=secret", "bancho.console" +
                         ".enabled=false")
                 .run(context -> assertThat(context).doesNotHaveBean("consoleMessageListener"));
