@@ -18,7 +18,7 @@ class MatchRoomPresetTest {
     @Test
     void appliesAllFieldsInOrder() {
         room.apply(new MatchPreset(0, 3, 2, "abc", List.of("HD", "HR"), 1502772L, List.of("Ref1"),
-                List.of("Alexlin86", "Friend")));
+                List.of("Alexlin86", "Friend"), null));
 
         assertThat(sender.calls).containsExactly(
                 "msg #mp_123 !mp set 0 3 2",
@@ -32,14 +32,14 @@ class MatchRoomPresetTest {
 
     @Test
     void appliesOnlyFilledFields() {
-        room.apply(new MatchPreset(null, null, null, null, List.of("HD"), null, null, null));
+        room.apply(new MatchPreset(null, null, null, null, List.of("HD"), null, null, null, null));
 
         assertThat(sender.calls).containsExactly("msg #mp_123 !mp mods HD");
     }
 
     @Test
     void invalidLaterFieldSendsNothing() {
-        MatchPreset preset = new MatchPreset(0, 3, 2, "abc", List.of("HD"), 1502772L, List.of("Two Words"), null);
+        MatchPreset preset = new MatchPreset(0, 3, 2, "abc", List.of("HD"), 1502772L, List.of("Two Words"), null, null);
 
         assertThatThrownBy(() -> room.apply(preset)).isInstanceOf(IllegalArgumentException.class);
         assertThat(sender.calls).isEmpty();
@@ -47,7 +47,7 @@ class MatchRoomPresetTest {
 
     @Test
     void invalidModSendsNothing() {
-        MatchPreset preset = new MatchPreset(0, 3, 2, null, List.of("H D"), null, null, null);
+        MatchPreset preset = new MatchPreset(0, 3, 2, null, List.of("H D"), null, null, null, null);
 
         assertThatThrownBy(() -> room.apply(preset)).isInstanceOf(IllegalArgumentException.class);
         assertThat(sender.calls).isEmpty();
@@ -55,7 +55,7 @@ class MatchRoomPresetTest {
 
     @Test
     void outOfRangeSettingsSendNothing() {
-        MatchPreset preset = new MatchPreset(9, 3, 2, null, null, null, null, List.of("Alexlin86"));
+        MatchPreset preset = new MatchPreset(9, 3, 2, null, null, null, null, List.of("Alexlin86"), null);
 
         assertThatThrownBy(() -> room.apply(preset)).isInstanceOf(IllegalArgumentException.class);
         assertThat(sender.calls).isEmpty();
@@ -63,8 +63,27 @@ class MatchRoomPresetTest {
 
     @Test
     void partialSetIsRejected() {
-        assertThatThrownBy(() -> new MatchPreset(0, null, 2, null, null, null, null, null))
+        assertThatThrownBy(() -> new MatchPreset(0, null, 2, null, null, null, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("team-mode、score-mode、size 必須一起設定");
+    }
+
+    @Test
+    void appliesModeWithBeatmap() {
+        room.apply(new MatchPreset(null, null, null, null, null, 1502772L, null, null, "mania"));
+        assertThat(sender.calls).containsExactly("msg #mp_123 !mp map 1502772 3");
+    }
+
+    @Test
+    void invalidModeSendsNothing() {
+        MatchPreset preset = new MatchPreset(0, 3, 2, null, null, 1502772L, null, null, "9");
+        assertThatThrownBy(() -> room.apply(preset)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void modeWithoutBeatmapIsRejected() {
+        assertThatThrownBy(() -> new MatchPreset(null, null, null, null, null, null, null, null, "mania"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("mode 必須和 beatmap 一起設定");
     }
 }

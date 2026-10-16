@@ -8,15 +8,19 @@ import java.util.List;
  * @param teamMode  !mp set 的 team mode（0–3），與 scoreMode、size 必須一起設定
  * @param scoreMode !mp set 的 score mode（0–3）
  * @param size      人數（1–16）
+ * @param mode      遊玩模式（數字或名稱），必須搭配 beatmap；由 match 層驗證值
  */
 public record MatchPreset(Integer teamMode, Integer scoreMode, Integer size, String password,
-                          List<String> mods, Long beatmap, List<String> referees, List<String> invite) {
+                          List<String> mods, Long beatmap, List<String> referees, List<String> invite, String mode) {
 
     public MatchPreset {
         boolean anySet = teamMode != null || scoreMode != null || size != null;
         boolean allSet = teamMode != null && scoreMode != null && size != null;
         if (anySet && !allSet) {
             throw new IllegalArgumentException("team-mode、score-mode、size 必須一起設定");
+        }
+        if (mode != null && beatmap == null) {
+            throw new IllegalArgumentException("mode 必須和 beatmap 一起設定");
         }
         mods = mods == null ? List.of() : List.copyOf(mods);
         referees = referees == null ? List.of() : List.copyOf(referees);

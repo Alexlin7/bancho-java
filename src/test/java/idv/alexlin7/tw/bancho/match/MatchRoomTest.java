@@ -27,6 +27,8 @@ class MatchRoomTest {
                 Arguments.of((Consumer<MatchRoom>) r -> r.invite("Alexlin86"), "!mp invite Alexlin86"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.set(0, 3, 2), "!mp set 0 3 2"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.map(1502772), "!mp map 1502772"),
+                Arguments.of((Consumer<MatchRoom>) r -> r.map(2453358, GameMode.MANIA), "!mp map 2453358 3"),
+                Arguments.of((Consumer<MatchRoom>) r -> r.map(2453358, null), "!mp map 2453358"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.mods("HD", "HR"), "!mp mods HD HR"),
                 Arguments.of((Consumer<MatchRoom>) MatchRoom::start, "!mp start"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.start(Duration.ofSeconds(10)), "!mp start 10"),
