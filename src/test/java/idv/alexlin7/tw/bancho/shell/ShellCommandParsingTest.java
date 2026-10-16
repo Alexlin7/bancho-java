@@ -1,0 +1,118 @@
+package idv.alexlin7.tw.bancho.shell;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
+import org.springframework.shell.core.command.CommandParser;
+import org.springframework.shell.core.command.CommandRegistry;
+import org.springframework.shell.test.ShellTestClient;
+
+import idv.alexlin7.tw.bancho.irc.RecordingIrcSender;
+import idv.alexlin7.tw.bancho.match.MatchService;
+
+/**
+ * 經由 Spring Shell 真正的 parser 執行指令，驗證「使用者打的字」與「送出的 !mp 指令」一致：
+ * 不可悄悄丟掉參數、截斷名稱，或忽略打錯的選項。
+ */
+@SpringBootTest
+class ShellCommandParsingTest {
+
+    @TestConfiguration
+    static class RecordingSenderConfiguration {
+
+        @Bean
+        @Primary
+        RecordingIrcSender recordingIrcSender() {
+            return new RecordingIrcSender();
+        }
+    }
+
+    @Autowired
+    private CommandParser parser;
+
+    @Autowired
+    private CommandRegistry registry;
+
+    @Autowired
+    private RecordingIrcSender sender;
+
+    @Autowired
+    private MatchService matchService;
+
+    private ShellTestClient client;
+
+    @BeforeEach
+    void setUp() {
+        client = new ShellTestClient(parser, registry);
+        matchService.attach(42);
+        sender.calls.clear();
+    }
+
+    private String run(String command) throws Exception {
+        return String.join("\n", client.sendCommand(command).lines());
+    }
+
+    @Test
+    void startTimerAndPasswordTakePositionalValues() throws Exception {
+        run("start 10 --room 42");
+        run("timer 60 --room 42");
+        run("password hunter2 --room 42");
+
+        assertThat(sender.calls).containsExactly(
+                "msg #mp_42 !mp start 10", "msg #mp_42 !mp timer 60", "msg #mp_42 !mp password hunter2");
+    }
+
+    @Test
+    void withoutValueStartTimerAndPasswordUseDefaults() throws Exception {
+        run("start --room 42");
+        run("timer --room 42");
+        run("password --room 42");
+
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp start", "msg #mp_42 !mp timer", "msg #mp_42 !mp password");
+    }
+
+    @Test
+    void misspelledOptionIsRejectedInsteadOfIgnored() throws Exception {
+        assertThat(run("start --dealy 10 --room 42")).contains("不認得的選項：--dealy");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void extraArgumentsAreRejectedInsteadOfIgnored() throws Exception {
+        assertThat(run("abort now --room 42")).contains("多餘的參數：now");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void makeKeepsWholeRoomName() throws Exception {
+        run("make OWC A vs B");
+
+        assertThat(sender.calls).containsExactly("msg BanchoBot !mp make OWC A vs B");
+    }
+
+    @Test
+    void inviteKeepsWholeUsername() throws Exception {
+        run("invite Mr Tester --room 42");
+
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp invite Mr Tester");
+    }
+
+    @Test
+    void chatWordStartingWithDashIsReportedNotDropped() throws Exception {
+        assertThat(run("say score was -5 lol --room 42")).contains("不認得的選項：-5");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void quotedChatTextIsSentAsIs() throws Exception {
+        run("say \"score was -5 lol\" --room 42");
+
+        assertThat(sender.calls).containsExactly("msg #mp_42 score was -5 lol");
+    }
+}
