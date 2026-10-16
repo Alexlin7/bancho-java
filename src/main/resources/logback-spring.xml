@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- 保留 Spring Boot 預設的 console 輸出 -->
+    <include resource="org/springframework/boot/logging/logback/base.xml"/>
+
+    <!-- 由 OpenTelemetryAppenderInitializer 在啟動時接上 OpenTelemetry；沒有設定匯出端點時不會送出任何資料 -->
+    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+        <captureKeyValuePairAttributes>true</captureKeyValuePairAttributes>
+        <captureExperimentalAttributes>true</captureExperimentalAttributes>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="OTEL"/>
+    </root>
+</configuration>
