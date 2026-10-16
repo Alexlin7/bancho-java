@@ -27,7 +27,7 @@ public class ChatCommands {
         this.rooms = new RoomResolver(matchService, session);
     }
 
-    @Command(name = "say", group = GROUP, description = "在房間頻道說話")
+    @Command(name = "say", group = GROUP, completionProvider = "roomOptionCompletion", description = "在房間頻道說話")
     public String say(@Arguments List<String> words,
                       @Option(longName = "room", description = "房號（預設為目前房間）") Long room) {
         String text = String.join(" ", words);

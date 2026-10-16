@@ -2,12 +2,17 @@ package idv.alexlin7.tw.bancho.shell;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.shell.core.command.CommandParser;
 import org.springframework.shell.core.command.CommandRegistry;
+import org.springframework.shell.core.command.completion.CompletionContext;
+import org.springframework.shell.core.command.completion.CompletionProposal;
+import org.springframework.shell.core.command.completion.DefaultCompletionProvider;
 import org.springframework.shell.test.ShellTestClient;
 
 /**
@@ -46,6 +51,21 @@ class ShellIntegrationTest {
     @Test
     void roomCommandWithoutRoomExplains() throws Exception {
         assertThat(screen("invite Alexlin86")).contains("請先用 make / use / attach 選擇房間");
+    }
+
+    @Test
+    void commandsUseOurCompletionProviders() {
+        var context = new CompletionContext(
+                List.of("mods", "h"), 1, 1, null, null);
+
+        assertThat(registry.getCommandByName("mods").getCompletionProvider().apply(context))
+                .extracting(CompletionProposal::value)
+                .containsExactly("HT", "HR", "HD");
+        for (String name : List.of("use", "attach", "invite", "addref", "map", "set", "start", "timer",
+                "abort", "close", "settings", "password", "say")) {
+            assertThat(registry.getCommandByName(name).getCompletionProvider()).as(name)
+                    .isNotInstanceOf(DefaultCompletionProvider.class);
+        }
     }
 
     @Test

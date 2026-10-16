@@ -59,14 +59,14 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "attach", group = GROUP, description = "接手一間已存在的房間並切換過去")
+    @Command(name = "attach", group = GROUP, completionProvider = "roomCompletion", description = "接手一間已存在的房間並切換過去")
     public String attach(@Argument(index = 0, description = "房號") long matchId) {
         MatchRoom room = matchService.attach(matchId);
         session.use(matchId);
         return "已接手：" + room.channel();
     }
 
-    @Command(name = "use", group = GROUP, description = "切換目前房間")
+    @Command(name = "use", group = GROUP, completionProvider = "roomCompletion", description = "切換目前房間")
     public String use(@Argument(index = 0, description = "房號") long matchId) {
         if (matchService.room(matchId).isEmpty()) {
             return "找不到房間：" + matchId;
@@ -84,7 +84,7 @@ public class MatchCommands {
         return open.stream().map(MatchCommands::describe).collect(Collectors.joining(System.lineSeparator()));
     }
 
-    @Command(name = "invite", group = GROUP, description = "邀請玩家")
+    @Command(name = "invite", group = GROUP, completionProvider = "userCompletion", description = "邀請玩家")
     public String invite(@Argument(index = 0, description = "玩家名稱") String username,
                          @Option(longName = "room", description = ROOM_OPTION) Long room) {
         return rooms.onRoom(room, r -> {
@@ -93,7 +93,7 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "map", group = GROUP, description = "換圖")
+    @Command(name = "map", group = GROUP, completionProvider = "roomOptionCompletion", description = "換圖")
     public String map(@Argument(index = 0, description = "beatmap id") long beatmapId,
                       @Option(longName = "room", description = ROOM_OPTION) Long room) {
         return rooms.onRoom(room, r -> {
@@ -102,7 +102,7 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "mods", group = GROUP, description = "設定 mod（會先清掉原本的 mod）")
+    @Command(name = "mods", group = GROUP, completionProvider = "modsCompletion", description = "設定 mod（會先清掉原本的 mod）")
     public String mods(@Arguments List<String> mods,
                        @Option(longName = "room", description = ROOM_OPTION) Long room) {
         return rooms.onRoom(room, r -> {
@@ -111,7 +111,7 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "set", group = GROUP, description = "設定 team mode（0–3）、score mode（0–3）、人數（1–16）")
+    @Command(name = "set", group = GROUP, completionProvider = "roomOptionCompletion", description = "設定 team mode（0–3）、score mode（0–3）、人數（1–16）")
     public String set(@Argument(index = 0, description = "team mode") int teamMode,
                       @Argument(index = 1, description = "score mode") int scoreMode,
                       @Argument(index = 2, description = "人數") int size,
@@ -122,7 +122,7 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "start", group = GROUP, description = "開始比賽")
+    @Command(name = "start", group = GROUP, completionProvider = "roomOptionCompletion", description = "開始比賽")
     public String start(@Option(longName = "delay", description = "幾秒後開始（預設立即）") Integer delaySeconds,
                         @Option(longName = "room", description = ROOM_OPTION) Long room) {
         return rooms.onRoom(room, r -> {
@@ -135,7 +135,7 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "timer", group = GROUP, description = "開始倒數")
+    @Command(name = "timer", group = GROUP, completionProvider = "roomOptionCompletion", description = "開始倒數")
     public String timer(@Option(longName = "seconds", description = "秒數（預設為 BanchoBot 的 30 秒）") Integer seconds,
                         @Option(longName = "room", description = ROOM_OPTION) Long room) {
         return rooms.onRoom(room, r -> {
@@ -148,7 +148,7 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "abort", group = GROUP, description = "中止比賽")
+    @Command(name = "abort", group = GROUP, completionProvider = "roomOptionCompletion", description = "中止比賽")
     public String abort(@Option(longName = "room", description = ROOM_OPTION) Long room) {
         return rooms.onRoom(room, r -> {
             r.abort();
@@ -156,7 +156,7 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "close", group = GROUP, description = "關房")
+    @Command(name = "close", group = GROUP, completionProvider = "roomOptionCompletion", description = "關房")
     public String close(@Option(longName = "room", description = ROOM_OPTION) Long room) {
         return rooms.onRoom(room, r -> {
             r.close();
@@ -164,7 +164,7 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "settings", group = GROUP, description = "查看房間設定（BanchoBot 會回覆在房間頻道）")
+    @Command(name = "settings", group = GROUP, completionProvider = "roomOptionCompletion", description = "查看房間設定（BanchoBot 會回覆在房間頻道）")
     public String settings(@Option(longName = "room", description = ROOM_OPTION) Long room) {
         return rooms.onRoom(room, r -> {
             r.settings();
@@ -172,7 +172,7 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "password", group = GROUP, description = "設定房間密碼；不給密碼則移除")
+    @Command(name = "password", group = GROUP, completionProvider = "roomOptionCompletion", description = "設定房間密碼；不給密碼則移除")
     public String password(@Option(longName = "value", description = "密碼") String password,
                            @Option(longName = "room", description = ROOM_OPTION) Long room) {
         return rooms.onRoom(room, r -> {
@@ -181,7 +181,7 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "addref", group = GROUP, description = "加入裁判")
+    @Command(name = "addref", group = GROUP, completionProvider = "userCompletion", description = "加入裁判")
     public String addref(@Arguments List<String> usernames,
                          @Option(longName = "room", description = ROOM_OPTION) Long room) {
         return rooms.onRoom(room, r -> {
