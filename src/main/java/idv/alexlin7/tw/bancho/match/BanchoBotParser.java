@@ -51,7 +51,9 @@ final class BanchoBotParser {
                     (id, m) -> new BeatmapChanged(id, Long.parseLong(m.group(1)), m.group(2))),
             new Rule("Enabled (.+), (enabled|disabled) FreeMod",
                     (id, m) -> new ModsChanged(id, Arrays.asList(m.group(1).split(", ")), "enabled".equals(m.group(2)))),
-            new Rule("Slot (\\d+)\\s+(.+?)\\s+https://osu\\.ppy\\.sh/u/(\\d+) (.+)",
+            // 名稱後若有「兩個以上空白 + [...]」的附加資訊（例如 host、隊伍），目前沒有真實樣本：
+            // 寧可當成未辨識（記 log 蒐集樣本），也不要把附加資訊當成使用者名稱
+            new Rule("Slot (\\d+)\\s+(.+?)\\s+https://osu\\.ppy\\.sh/u/(\\d+) (?!.*\\s{2}\\[)(.+)",
                     (id, m) -> new SlotStatus(id, Integer.parseInt(m.group(1)), m.group(2),
                             Long.parseLong(m.group(3)), m.group(4))));
 

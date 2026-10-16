@@ -77,6 +77,19 @@ class MatchRoomTest {
     }
 
     @Test
+    void addRefSendsStrippedNames() {
+        room.addRef(" Alice ", "Bob");
+
+        assertThat(sender.calls).containsExactly("msg #mp_123 !mp addref Alice Bob");
+    }
+
+    @Test
+    void addRefRejectsNamesWithSpaces() {
+        assertThatThrownBy(() -> room.addRef("Some Player")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void invalidArgumentsSendNothing() {
         assertThatThrownBy(() -> room.mods("HD HR")).isInstanceOf(IllegalArgumentException.class);
 

@@ -2,6 +2,7 @@ package idv.alexlin7.tw.bancho.match;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
 
 import idv.alexlin7.tw.bancho.irc.IrcSender;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent;
@@ -101,8 +102,12 @@ public final class MatchRoom {
         if (usernames.length == 0) {
             throw new IllegalArgumentException("至少要指定一位裁判");
         }
-        Arrays.stream(usernames).forEach(MatchRoom::requireName);
-        command(MP + "addref " + String.join(" ", usernames));
+        // 多位裁判以空白分隔，名稱本身含空白會被 BanchoBot 拆成兩個人；空白是否可換成底線尚未實測，先拒絕
+        List<String> names = Arrays.stream(usernames).map(MatchRoom::requireName).toList();
+        names.stream().filter(name -> name.contains(" ")).findFirst().ifPresent(name -> {
+            throw new IllegalArgumentException("addref 的名稱不可含空白：" + name);
+        });
+        command(MP + "addref " + String.join(" ", names));
     }
 
     public void settings() {

@@ -95,6 +95,13 @@ class BanchoBotParserTest {
     }
 
     @Test
+    void slotLineWithUnknownSuffixIsUnrecognizedInsteadOfCorruptingUsername() {
+        String text = "Slot 1  Not Ready https://osu.ppy.sh/u/4841753 Alexlin86       [Host / Team Blue]";
+
+        assertThat(parse(ROOM, text)).isEqualTo(new Result.Unrecognized(ROOM_ID, text));
+    }
+
+    @Test
     void ignoresMessagesNotFromBanchoBot() {
         assertThat(parse("Alexlin86", "#mp_1", "Closed the match")).isEqualTo(new Result.NotFromBanchoBot());
     }
