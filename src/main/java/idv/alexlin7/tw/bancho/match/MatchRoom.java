@@ -6,6 +6,7 @@ import java.util.List;
 
 import idv.alexlin7.tw.bancho.irc.IrcSender;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent;
+import idv.alexlin7.tw.bancho.match.preset.MatchPreset;
 
 /**
  * 單一多人房：把 {@code !mp} 指令送到 {@code #mp_<id>}，並保存由事件更新的 {@link MatchState}。
@@ -113,6 +114,26 @@ public final class MatchRoom {
             throw new IllegalArgumentException("addref 的名稱不可含空白：" + name);
         });
         command(MP + "addref " + String.join(" ", names));
+    }
+
+    /** 依 set → password → mods → map → addref → invite 的順序送出，未填的欄位跳過。 */
+    public void apply(MatchPreset preset) {
+        if (preset.hasSettings()) {
+            set(preset.teamMode(), preset.scoreMode(), preset.size());
+        }
+        if (preset.password() != null) {
+            password(preset.password());
+        }
+        if (!preset.mods().isEmpty()) {
+            mods(preset.mods().toArray(String[]::new));
+        }
+        if (preset.beatmap() != null) {
+            map(preset.beatmap());
+        }
+        if (!preset.referees().isEmpty()) {
+            addRef(preset.referees().toArray(String[]::new));
+        }
+        preset.invite().forEach(this::invite);
     }
 
     public void settings() {

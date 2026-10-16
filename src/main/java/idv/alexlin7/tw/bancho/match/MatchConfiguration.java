@@ -5,9 +5,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import idv.alexlin7.tw.bancho.irc.IrcSender;
+import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
 
 @Configuration
-@EnableConfigurationProperties(MatchProperties.class)
+@EnableConfigurationProperties({MatchProperties.class, MatchPresetProperties.class})
 public class MatchConfiguration {
 
     /** MatchService 不是 IrcMessageListener，直接注入 IrcSender 不會形成循環依賴。 */

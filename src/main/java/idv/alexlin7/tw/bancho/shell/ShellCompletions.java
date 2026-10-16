@@ -13,6 +13,7 @@ import org.springframework.shell.core.command.completion.CompletionProvider;
 
 import idv.alexlin7.tw.bancho.match.MatchRoom;
 import idv.alexlin7.tw.bancho.match.MatchService;
+import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
 
 /**
  * Tab 補全。Spring Shell 會自己補選項名稱（例如 --room），這裡只提供選項值與主要參數的候選。
@@ -26,6 +27,19 @@ class ShellCompletions {
             "EZ", "NF", "HT", "HR", "SD", "PF", "DT", "NC", "HD", "FL", "RL", "AP", "SO", "SV2", "Freemod");
 
     private static final String ROOM_OPTION = "room";
+    private static final String PRESET_OPTION = "preset";
+
+    /** make：只補 --preset 的值（範本名稱）。 */
+    @Bean
+    CompletionProvider makeCompletion(MatchPresetProperties presets) {
+        return context -> {
+            CommandOption option = context.getCommandOption();
+            if (option == null || !PRESET_OPTION.equals(option.longName())) {
+                return List.of();
+            }
+            return filter(presets.presets().keySet().stream().sorted().map(CompletionProposal::new).toList(), context);
+        };
+    }
 
     /** use、attach：主要參數就是房號。 */
     @Bean

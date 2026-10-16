@@ -6,12 +6,15 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
 import idv.alexlin7.tw.bancho.irc.RecordingIrcSender;
 import idv.alexlin7.tw.bancho.match.MatchService;
+import idv.alexlin7.tw.bancho.match.preset.MatchPreset;
+import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchClosed;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchCreated;
 
@@ -23,7 +26,9 @@ class MatchCommandsTest {
     private final MatchService matchService = new MatchService(sender, Duration.ofMillis(200));
     private final ShellSession session = new ShellSession();
     private final List<String> printed = Collections.synchronizedList(new ArrayList<>());
-    private final MatchCommands commands = new MatchCommands(matchService, session, printed::add);
+    private final MatchCommands commands = new MatchCommands(matchService, session, printed::add,
+            new MatchPresetProperties(Map.of("practice",
+                    new MatchPreset(0, 3, 2, null, List.of("HD"), null, null, null))));
 
     private void awaitLastMake() throws Exception {
         commands.lastMake().handle((room, error) -> null).get(2, TimeUnit.SECONDS);
@@ -31,7 +36,7 @@ class MatchCommandsTest {
 
     @Test
     void makeSendsRequestAndUsesRoomWhenCreated() throws Exception {
-        assertThat(commands.make("測試房")).contains("已送出開房請求：測試房");
+        assertThat(commands.make("測試房", null)).contains("已送出開房請求：測試房");
         assertThat(sender.calls).containsExactly("msg BanchoBot !mp make 測試房");
 
         matchService.onMatchEvent(new MatchCreated(122021273, "測試房"));
@@ -42,8 +47,25 @@ class MatchCommandsTest {
     }
 
     @Test
+    void makeWithPresetAppliesItAfterCreation() throws Exception {
+        commands.make("r", "practice");
+
+        matchService.onMatchEvent(new MatchCreated(5, "r"));
+        awaitLastMake();
+
+        assertThat(sender.calls).containsSubsequence("join #mp_5", "msg #mp_5 !mp set 0 3 2", "msg #mp_5 !mp mods HD");
+        assertThat(printed).contains("已套用範本：practice");
+    }
+
+    @Test
+    void unknownPresetRejectedBeforeMake() {
+        assertThat(commands.make("r", "nope")).isEqualTo("找不到範本：nope");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void makeTimeoutIsPrinted() throws Exception {
-        commands.make("r");
+        commands.make("r", null);
         awaitLastMake();
 
         assertThat(printed).contains("開房逾時：r");

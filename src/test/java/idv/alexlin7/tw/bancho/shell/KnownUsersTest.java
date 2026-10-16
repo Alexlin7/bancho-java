@@ -2,9 +2,14 @@ package idv.alexlin7.tw.bancho.shell;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 
 import idv.alexlin7.tw.bancho.irc.IrcMessage;
+import idv.alexlin7.tw.bancho.match.preset.MatchPreset;
+import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerInvited;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerJoined;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerMoved;
@@ -12,7 +17,7 @@ import idv.alexlin7.tw.bancho.match.event.MatchEvent.SlotStatus;
 
 class KnownUsersTest {
 
-    private final KnownUsers users = new KnownUsers();
+    private final KnownUsers users = new KnownUsers(new MatchPresetProperties(Map.of()));
 
     private void receive(String rawLine) {
         users.onMessage(IrcMessage.parse(rawLine).orElseThrow());
@@ -41,6 +46,14 @@ class KnownUsersTest {
         receive(":Stranger!cho@ppy.sh PRIVMSG #mp_1 :hello");
 
         assertThat(users.all()).isEmpty();
+    }
+
+    @Test
+    void presetNamesAreKnownFromStart() {
+        KnownUsers withPresets = new KnownUsers(new MatchPresetProperties(Map.of("p",
+                new MatchPreset(null, null, null, null, null, null, List.of("Ref1"), List.of("Invitee")))));
+
+        assertThat(withPresets.all()).containsExactly("Invitee", "Ref1");
     }
 
     @Test
