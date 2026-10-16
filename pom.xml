@@ -29,12 +29,25 @@
     <properties>
         <java.version>25</java.version>
         <!-- 必須對應 Boot 管理的 OTel API 版本（Boot 4.1.1 → 1.62.0）；2.29 以上需要更新的 API，不可直接升級 -->
+        <!-- Spring Shell 不受 Boot 管理；4.0.3 已實測可在 Boot 4.1.1 上執行 -->
+        <spring-shell.version>4.0.3</spring-shell.version>
         <opentelemetry-logback-appender.version>2.28.1-alpha</opentelemetry-logback-appender.version>
     </properties>
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-opentelemetry</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.shell</groupId>
+            <artifactId>spring-shell-starter</artifactId>
+            <version>${spring-shell.version}</version>
+        </dependency>
+        <!-- starter 只帶 core；歷史紀錄與 Tab 補全需要 JLine 版 -->
+        <dependency>
+            <groupId>org.springframework.shell</groupId>
+            <artifactId>spring-shell-jline</artifactId>
+            <version>${spring-shell.version}</version>
         </dependency>
         <dependency>
             <groupId>io.opentelemetry.instrumentation</groupId>
@@ -59,6 +72,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.shell</groupId>
+            <artifactId>spring-shell-starter-test</artifactId>
+            <version>${spring-shell.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

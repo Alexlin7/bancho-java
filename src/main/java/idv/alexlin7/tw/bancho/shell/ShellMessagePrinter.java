@@ -1,23 +1,24 @@
-package idv.alexlin7.tw.bancho.console;
+package idv.alexlin7.tw.bancho.shell;
 
-import java.io.PrintStream;
+import org.springframework.stereotype.Component;
 
 import idv.alexlin7.tw.bancho.irc.IrcMessage;
 import idv.alexlin7.tw.bancho.irc.IrcMessageListener;
 
 /**
- * 把收到的訊息印到終端機：頻道訊息 {@code [#mp_1] 名稱: 內容}，私訊 {@code [PM] 名稱: 內容}。
+ * 把收到的訊息印到 shell：頻道訊息 {@code [#mp_1] 名稱: 內容}，私訊 {@code [PM] 名稱: 內容}。
  */
-public class ConsoleMessageListener implements IrcMessageListener {
+@Component
+class ShellMessagePrinter implements IrcMessageListener {
 
     /**
      * CTCP ACTION（/me）的包裝：\u0001ACTION 內容\u0001
      */
     private static final String ACTION_PREFIX = "\u0001ACTION ";
 
-    private final PrintStream out;
+    private final ShellOutput out;
 
-    public ConsoleMessageListener(PrintStream out) {
+    ShellMessagePrinter(ShellOutput out) {
         this.out = out;
     }
 
@@ -28,9 +29,9 @@ public class ConsoleMessageListener implements IrcMessageListener {
         String text = message.trailing();
         if (text.startsWith(ACTION_PREFIX)) {
             String action = text.substring(ACTION_PREFIX.length()).replace("\u0001", "");
-            out.printf("[%s] * %s %s%n", source, message.nick(), action);
+            out.println("[" + source + "] * " + message.nick() + " " + action);
         } else {
-            out.printf("[%s] %s: %s%n", source, message.nick(), text);
+            out.println("[" + source + "] " + message.nick() + ": " + text);
         }
     }
 }
