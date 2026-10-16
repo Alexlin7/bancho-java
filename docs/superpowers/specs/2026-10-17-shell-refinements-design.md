@@ -38,12 +38,14 @@
   ```
   名稱以 - 開頭（例如 -SH-）會被當成選項，需要跳脫：
     用雙引號包起來：addref "-SH-"
-    或在名稱前加 --：addref -- -SH-（-- 之後的字都當成名稱，--room 要寫在 -- 前面）
+    或緊接在指令後面加 --：addref -- -SH-（-- 之後的字全部當成名稱，不能再加 --room 或 --room=…）
+    要指定房間時用雙引號：addref "-SH-" --room 42
     單引號沒有作用：'-SH-' 會連引號一起送出
   看到「Option '-SH-' requires a value」就是這個原因。
   ```
 
 - `InputGuard` 拒絕未知選項時的錯誤訊息（例如打成 `addref --SH-` 這類被當成長選項的情況）也改成同樣的兩種寫法。
+- `--` 只有緊接在指令後面才有效（實測：`addref --room 42 -- -SH-` 會得到 `Option '-SH-' requires a value`），`--` 之後的 `--room` 或 `--room=42` 會被當成名稱。`invite`、`addref` 收到內容等於 `--room` 或以 `--room=` 開頭的參數（含空值 `--room=`）時回錯誤，不送指令，並提示改用 `addref "-SH-" --room 42`。
 - CLAUDE.md 的 shell 段落補上同一段說明。
 - `userCompletion` 補出以 `-` 開頭的名稱時，候選值本身帶雙引號（`"-SH-"`），Tab 補完就是可以直接執行的寫法。實作時先驗證 JLine 會不會再跳脫引號；會的話就只改說明。
 - 補測試：`ShellCommandParsingTest` 加上 `addref "-SH-" --room 42` → `!mp addref -SH-`。
@@ -81,7 +83,7 @@ shell：`map <beatmapId> [模式]`，模式同時接受**數字與名稱**，不
 - 新增 `match.GameMode` enum：`OSU(0)`、`TAIKO(1)`、`CATCH(2)`、`MANIA(3)`，提供 `int id()` 與 `static Optional<GameMode> parse(String)`（數字或名稱）。
   前一份設計說「BanchoBot 原文不轉 enum」，那是針對 BanchoBot **回覆**中沒看過完整值域的字串；遊玩模式是我們**送出**的參數，值域由 wiki 明確定義，所以用 enum。
 - `MatchRoom` 新增 `void map(long beatmapId, GameMode mode)`，送 `!mp map <id> <mode.id()>`；原本的 `map(long)` 保留。
-- 房間範本加 `mode` 欄位（`bancho.match.presets.<名稱>.mode`，值同上，例如 `mode: mania`）。只填 `mode` 沒填 `beatmap` 時，啟動時就驗證失敗（與 team-mode 三者必須一起設定的做法相同）。
+- 房間範本加 `mode` 欄位（`bancho.match.presets.<名稱>.mode`，值同上，例如 `mode: mania`）。`MatchPreset` 中存原文字串（`match.preset` 不能依賴 `match.GameMode`）。以下情況啟動時就失敗：只填 `mode` 沒填 `beatmap`（`MatchPreset` 建構子檢查），或 `mode` 的值無效（`MatchConfiguration` 以 `GameMode.parse` 檢查，依賴方向維持 `match → match.preset`）。避免 `make --preset` 已經開出房間才發現範本錯誤。
 
 ### 尚未有樣本的部分
 
@@ -155,9 +157,9 @@ mp <BanchoBot 指令與參數…> [--room <房號>]
 | `BanchoBotParser` | 第 4 節每則樣本對到正確的 `Parsed` / `Ignored` / `Unrecognized` |
 | 回放 | `session-2026-10-17.irc` 回放後 mod 清空、slot 與圖正確 |
 | `MatchCommands` | `map 2453358 mania`、`map 2453358 3`、未知模式、多餘參數；`mp` 的轉送、空參數、`make` 拒絕、密碼遮蔽 |
-| `ShellCommandParsingTest` | `map 2453358 2 --room 42` → `msg #mp_42 !mp map 2453358 2`；`addref "-SH-" --room 42` → `!mp addref -SH-`；`mp host "-SH-" --room 42` → `!mp host -SH-` |
+| `ShellCommandParsingTest` | `map 2453358 2 --room 42` → `msg #mp_42 !mp map 2453358 2`；`addref "-SH-" --room 42` → `!mp addref -SH-`；`mp host "-SH-" --room 42` → `!mp host -SH-`；invite／addref 在 `--` 後帶 `--room 42`、`--room=42` 或 `--room=` 時回錯誤且不送任何指令 |
 | `ShellCompletions` | `map` 第二個參數補出模式名稱；`-` 開頭的名稱補成帶引號的候選值 |
-| log | 讀取 `src/main/resources/application.properties`（測試 classpath 上的同名檔會遮蔽它，所以直接讀檔）：`logging.threshold.console` 為 WARN；`logging.file.name` 未設環境變數時解析為 `logs/bancho.log`、設了 `BANCHO_LOG_FILE` 時用它的值 |
+| log | 讀取 `src/main/resources/application.properties`（測試 classpath 上的同名檔會遮蔽它，所以直接讀檔）：`logging.threshold.console` 為 WARN；`logging.file.name` 未設環境變數時解析為 `logs/bancho.log`、設了 `BANCHO_LOG_FILE` 時用它的值。實跑驗證使用新的暫存目錄，以 `BANCHO_LOG_FILE` 指向測試專用檔案，確認 exit 0、console 無 INFO、檔案有 INFO；不刪除或覆寫既有 `logs/` |
 | 說明文字 | `invite`、`addref` 的 help 含 `"-SH-"` 與 `-- -SH-` 兩種寫法；未知選項的錯誤訊息含同樣提示 |
 
 ## 8. 待驗證事項
@@ -165,6 +167,6 @@ mp <BanchoBot 指令與參數…> [--room <房號>]
 | 項目 | 驗證方式 | 結果不如預期時 |
 |---|---|---|
 | JLine 補全時是否會跳脫候選值裡的雙引號 | 實作時以 dumb terminal 的 `LineReader` 測 | 只保留說明文字，不補引號 |
-| `addref --room 42 -- -SH-` 與 `addref -- -SH- --room 42` 各自怎麼解析 | 實作時用 `CommandParser` 測 | 說明文字改成實際可用的寫法 |
+| `addref --room 42 -- -SH-` 與 `addref -- -SH- --room 42` 各自怎麼解析 | ✅ 已驗證（2026-10-17）：前者 `Option '-SH-' requires a value`；後者參數為 `[-SH-, --room, 42]` | 說明改為 `--` 只能緊接指令、指定房間用雙引號 |
 | `!mp map <id> <mode>` 後 BanchoBot 的回覆 | 使用者實測 | 有新格式就加入樣本與解析規則 |
 | 比賽正常結束的訊息 | 使用者實測一場打完的比賽 | 之後再加 `MatchFinished` 與狀態 |
