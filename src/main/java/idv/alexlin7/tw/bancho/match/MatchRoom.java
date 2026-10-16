@@ -81,6 +81,11 @@ public final class MatchRoom {
         command(MP + "start " + requireSeconds(delay));
     }
 
+    /** 使用 BanchoBot 的預設倒數時間。 */
+    public void timer() {
+        command(MP + "timer");
+    }
+
     public void timer(Duration duration) {
         command(MP + "timer " + requireSeconds(duration));
     }
