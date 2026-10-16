@@ -167,7 +167,8 @@ class ShellCommandParsingTest {
         session.use(7);
         sender.calls.clear();
         assertThat(run("addref -- -SH- --room 42")).contains("addref \"-SH-\" --room 42");
-        assertThat(run("invite -- -SH- --room 42")).contains("addref \"-SH-\" --room 42");
+        assertThat(run("invite -- -SH- --room 42")).contains("invite \"-SH-\" --room 42")
+                .doesNotContain("addref");
         assertThat(sender.calls).isEmpty();
     }
 
@@ -179,7 +180,7 @@ class ShellCommandParsingTest {
         for (String command : java.util.List.of("addref", "invite")) {
             for (String option : java.util.List.of("--room=42", "--room=")) {
                 assertThat(run(command + " -- -SH- " + option)).startsWith("錯誤：")
-                        .contains("addref \"-SH-\" --room 42");
+                        .contains(command + " \"-SH-\" --room 42");
             }
         }
         assertThat(sender.calls).isEmpty();
@@ -196,7 +197,8 @@ class ShellCommandParsingTest {
         assertThat(run("help addref")).contains("addref --help");
         assertThat(run("help invite")).contains("invite --help");
         assertThat(run("addref --help")).contains("addref \"-SH-\"", "addref -- -SH-");
-        assertThat(run("invite --help")).contains("addref \"-SH-\"", "addref -- -SH-");
+        assertThat(run("invite --help")).contains("invite \"-SH-\"", "invite -- -SH-")
+                .doesNotContain("addref");
     }
 
     @Test
