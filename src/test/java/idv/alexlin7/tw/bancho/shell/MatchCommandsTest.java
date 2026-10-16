@@ -140,7 +140,7 @@ class MatchCommandsTest {
         commands.attach(42, null);
         sender.calls.clear();
 
-        commands.map(1502772, 42L, null);
+        commands.map(1502772, null, 42L, null);
         commands.mods(List.of("HD", "HR"), 42L, null);
         commands.set(0, 3, 2, 42L, null);
         commands.settings(42L, null);
@@ -152,6 +152,24 @@ class MatchCommandsTest {
                 "msg #mp_42 !mp map 1502772", "msg #mp_42 !mp mods HD HR", "msg #mp_42 !mp set 0 3 2",
                 "msg #mp_42 !mp settings", "msg #mp_42 !mp password", "msg #mp_42 !mp addref Ref1",
                 "msg #mp_42 !mp close");
+    }
+
+    @Test
+    void mapAcceptsOptionalMode() {
+        matchService.attach(42);
+        sender.calls.clear();
+        assertThat(commands.map(2453358, "mania", 42L, null)).isEqualTo("已送出：!mp map 2453358 3");
+        assertThat(commands.map(2453358, null, 42L, null)).isEqualTo("已送出：!mp map 2453358");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp map 2453358 3", "msg #mp_42 !mp map 2453358");
+    }
+
+    @Test
+    void mapRejectsUnknownMode() {
+        matchService.attach(42);
+        sender.calls.clear();
+        assertThat(commands.map(2453358, "4", 42L, null))
+                .isEqualTo("錯誤：不認得的遊玩模式：4（可用 osu、taiko、catch、mania 或 0–3）");
+        assertThat(sender.calls).isEmpty();
     }
 
     @Test

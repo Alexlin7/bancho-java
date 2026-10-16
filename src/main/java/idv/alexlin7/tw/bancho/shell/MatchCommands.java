@@ -17,6 +17,7 @@ import org.springframework.shell.core.command.annotation.Option;
 import org.springframework.stereotype.Component;
 
 import idv.alexlin7.tw.bancho.match.MatchRoom;
+import idv.alexlin7.tw.bancho.match.GameMode;
 import idv.alexlin7.tw.bancho.match.MatchService;
 import idv.alexlin7.tw.bancho.match.MatchState;
 import idv.alexlin7.tw.bancho.match.preset.MatchPreset;
@@ -131,13 +132,18 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "map", group = GROUP, completionProvider = "roomOptionCompletion", description = "換圖")
+    @Command(name = "map", group = GROUP, completionProvider = "mapCompletion",
+            description = "換圖；可指定遊玩模式（osu、taiko、catch、mania 或 0–3），std 圖可轉成其他模式")
     public String map(@Argument(index = 0, description = "beatmap id") long beatmapId,
+                      @Argument(index = 1, description = "遊玩模式（預設為圖本身的模式）") String mode,
                       @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                       CommandContext context) {
-        return guardedOnRoom(context, 1, room, r -> {
-            r.map(beatmapId);
-            return SENT + "!mp map " + beatmapId;
+        return guardedOnRoom(context, 2, room, r -> {
+            GameMode parsed = mode == null || mode.isEmpty() ? null : GameMode.parse(mode)
+                    .orElseThrow(() -> new IllegalArgumentException("不認得的遊玩模式：" + mode
+                            + "（可用 osu、taiko、catch、mania 或 0–3）"));
+            r.map(beatmapId, parsed);
+            return SENT + "!mp map " + beatmapId + (parsed == null ? "" : " " + parsed.id());
         });
     }
 

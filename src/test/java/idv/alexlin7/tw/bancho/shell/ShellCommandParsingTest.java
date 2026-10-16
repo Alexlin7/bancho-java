@@ -110,6 +110,24 @@ class ShellCommandParsingTest {
     }
 
     @Test
+    void mapTakesOptionalMode() throws Exception {
+        run("map 2453358 2 --room 42");
+        run("map 2453358 MANIA --room 42");
+        run("map --room 42 2453358 Ctb");
+        assertThat(run("map 2453358 --room 42")).isEqualTo("已送出：!mp map 2453358");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp map 2453358 2",
+                "msg #mp_42 !mp map 2453358 3", "msg #mp_42 !mp map 2453358 2", "msg #mp_42 !mp map 2453358");
+    }
+
+    @Test
+    void mapRejectsUnknownModeAndExtraArguments() throws Exception {
+        assertThat(run("map 2453358 abc --room 42")).contains("不認得的遊玩模式：abc");
+        assertThat(run("map 2453358 4 --room 42")).contains("不認得的遊玩模式：4");
+        assertThat(run("map 2453358 3 x --room 42")).contains("多餘的參數：x");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void quotedChatTextIsSentAsIs() throws Exception {
         run("say \"score was -5 lol\" --room 42");
 
