@@ -73,9 +73,14 @@ public final class FakeIrcServer implements AutoCloseable {
         send(":cho.ppy.sh 001 test_user :Welcome to the osu!Bancho.");
     }
 
+    /**
+     * 由 server 端結束連線：只關閉送出方向（FIN），socket 由 read loop 讀到 client 關閉後再關。
+     * 直接 close() 時若 client 送來的 PASS/NICK/USER 還沒被讀走，Windows 會送 RST，
+     * client 可能還沒讀到剛送出的訊息（例如 464）就收到 connection reset。
+     */
     public void dropConnection() {
         try {
-            current.close();
+            current.shutdownOutput();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

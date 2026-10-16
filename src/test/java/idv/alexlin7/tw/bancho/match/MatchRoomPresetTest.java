@@ -38,6 +38,30 @@ class MatchRoomPresetTest {
     }
 
     @Test
+    void invalidLaterFieldSendsNothing() {
+        MatchPreset preset = new MatchPreset(0, 3, 2, "abc", List.of("HD"), 1502772L, List.of("Two Words"), null);
+
+        assertThatThrownBy(() -> room.apply(preset)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void invalidModSendsNothing() {
+        MatchPreset preset = new MatchPreset(0, 3, 2, null, List.of("H D"), null, null, null);
+
+        assertThatThrownBy(() -> room.apply(preset)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void outOfRangeSettingsSendNothing() {
+        MatchPreset preset = new MatchPreset(9, 3, 2, null, null, null, null, List.of("Alexlin86"));
+
+        assertThatThrownBy(() -> room.apply(preset)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void partialSetIsRejected() {
         assertThatThrownBy(() -> new MatchPreset(0, null, 2, null, null, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class)

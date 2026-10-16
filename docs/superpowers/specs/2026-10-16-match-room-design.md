@@ -186,12 +186,12 @@ void say(String text);                  // 在房間頻道說一般的話
 指令（房間相關的指令預設作用在目前房間，可用 `--room <房號>` 指定其他房間）：
 
 ```
-make <房名> [--preset <範本>]
+make <房名…> [--preset <範本>]
 attach <房號>
 use <房號>
 rooms
-invite <玩家>    map <beatmapId>    mods <mod...>    set <teamMode> <scoreMode> <size>
-start [--delay <秒>]    timer [<秒>]    abort    close    settings    password [<密碼>]    addref <玩家...>
+invite <玩家…>    map <beatmapId>    mods <mod...>    set <teamMode> <scoreMode> <size>
+start [<秒>]    timer [<秒>]    abort    close    settings    password [<密碼>]    addref <玩家...>
 say <文字>
 msg <對象> <文字>
 ```
