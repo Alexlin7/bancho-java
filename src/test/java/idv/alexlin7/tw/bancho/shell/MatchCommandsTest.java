@@ -1,0 +1,143 @@
+package idv.alexlin7.tw.bancho.shell;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import org.junit.jupiter.api.Test;
+
+import idv.alexlin7.tw.bancho.irc.RecordingIrcSender;
+import idv.alexlin7.tw.bancho.match.MatchService;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchClosed;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchCreated;
+
+class MatchCommandsTest {
+
+    private static final String NO_ROOM = "請先用 make / use / attach 選擇房間，或加上 --room <房號>";
+
+    private final RecordingIrcSender sender = new RecordingIrcSender();
+    private final MatchService matchService = new MatchService(sender, Duration.ofMillis(200));
+    private final ShellSession session = new ShellSession();
+    private final List<String> printed = Collections.synchronizedList(new ArrayList<>());
+    private final MatchCommands commands = new MatchCommands(matchService, session, printed::add);
+
+    private void awaitLastMake() throws Exception {
+        commands.lastMake().handle((room, error) -> null).get(2, TimeUnit.SECONDS);
+    }
+
+    @Test
+    void makeSendsRequestAndUsesRoomWhenCreated() throws Exception {
+        assertThat(commands.make("測試房")).contains("已送出開房請求：測試房");
+        assertThat(sender.calls).containsExactly("msg BanchoBot !mp make 測試房");
+
+        matchService.onMatchEvent(new MatchCreated(122021273, "測試房"));
+        awaitLastMake();
+
+        assertThat(printed).contains("房間已建立：#mp_122021273 測試房");
+        assertThat(session.currentRoom()).contains(122021273L);
+    }
+
+    @Test
+    void makeTimeoutIsPrinted() throws Exception {
+        commands.make("r");
+        awaitLastMake();
+
+        assertThat(printed).contains("開房逾時：r");
+    }
+
+    @Test
+    void roomCommandUsesCurrentRoom() {
+        commands.attach(42);
+        commands.use(42);
+
+        assertThat(commands.invite("Alexlin86", null)).isEqualTo("已送出：!mp invite Alexlin86");
+        assertThat(sender.calls).contains("msg #mp_42 !mp invite Alexlin86");
+    }
+
+    @Test
+    void roomOptionOverridesCurrentRoom() {
+        commands.attach(42);
+        commands.attach(7);
+        commands.use(42);
+
+        commands.abort(7L);
+
+        assertThat(sender.calls).contains("msg #mp_7 !mp abort").doesNotContain("msg #mp_42 !mp abort");
+    }
+
+    @Test
+    void roomCommandWithoutCurrentRoomExplains() {
+        assertThat(commands.invite("A", null)).isEqualTo(NO_ROOM);
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void unknownOrClosedRoomIsReported() {
+        assertThat(commands.invite("A", 999L)).isEqualTo("找不到房間：999");
+
+        matchService.onMatchEvent(new MatchCreated(1, "a"));
+        matchService.onMatchEvent(new MatchClosed(1));
+        sender.calls.clear();
+
+        assertThat(commands.abort(1L)).isEqualTo("房間已關閉：#mp_1");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void useRejectsUnknownRoom() {
+        assertThat(commands.use(5)).isEqualTo("找不到房間：5");
+        assertThat(session.currentRoom()).isEmpty();
+    }
+
+    @Test
+    void invalidArgumentsBecomeErrorText() {
+        commands.attach(42);
+
+        assertThat(commands.set(9, 0, 2, 42L)).startsWith("錯誤：");
+    }
+
+    @Test
+    void startAndTimer() {
+        commands.attach(42);
+
+        commands.start(null, 42L);
+        commands.start(10, 42L);
+        commands.timer(null, 42L);
+        commands.timer(30, 42L);
+
+        assertThat(sender.calls).containsSubsequence(
+                "msg #mp_42 !mp start", "msg #mp_42 !mp start 10", "msg #mp_42 !mp timer", "msg #mp_42 !mp timer 30");
+    }
+
+    @Test
+    void otherRoomCommands() {
+        commands.attach(42);
+        sender.calls.clear();
+
+        commands.map(1502772, 42L);
+        commands.mods(List.of("HD", "HR"), 42L);
+        commands.set(0, 3, 2, 42L);
+        commands.settings(42L);
+        commands.password(null, 42L);
+        commands.addref(List.of("Ref1"), 42L);
+        commands.close(42L);
+
+        assertThat(sender.calls).containsExactly(
+                "msg #mp_42 !mp map 1502772", "msg #mp_42 !mp mods HD HR", "msg #mp_42 !mp set 0 3 2",
+                "msg #mp_42 !mp settings", "msg #mp_42 !mp password", "msg #mp_42 !mp addref Ref1",
+                "msg #mp_42 !mp close");
+    }
+
+    @Test
+    void roomsListsOpenRooms() {
+        assertThat(commands.rooms()).isEqualTo("目前沒有開著的房間");
+
+        matchService.onMatchEvent(new MatchCreated(1, "a"));
+
+        assertThat(commands.rooms()).contains("#mp_1 a");
+    }
+}

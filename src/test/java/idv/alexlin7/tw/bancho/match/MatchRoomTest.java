@@ -31,6 +31,7 @@ class MatchRoomTest {
                 Arguments.of((Consumer<MatchRoom>) MatchRoom::start, "!mp start"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.start(Duration.ofSeconds(10)), "!mp start 10"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.timer(Duration.ofSeconds(30)), "!mp timer 30"),
+                Arguments.of((Consumer<MatchRoom>) MatchRoom::timer, "!mp timer"),
                 Arguments.of((Consumer<MatchRoom>) MatchRoom::abort, "!mp abort"),
                 Arguments.of((Consumer<MatchRoom>) MatchRoom::close, "!mp close"),
                 Arguments.of((Consumer<MatchRoom>) MatchRoom::settings, "!mp settings"),
