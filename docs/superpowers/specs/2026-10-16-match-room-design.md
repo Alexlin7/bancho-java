@@ -275,11 +275,11 @@ log.atInfo().addKeyValue("match.id", id).addKeyValue("match.event", "PlayerJoine
 
 | 項目 | 驗證時機 | 驗證失敗時 |
 |---|---|---|
-| Spring Shell 4.0.3 能在 Boot 4.1.1 上啟動與執行指令 | 階段二第一步 | 停在階段一，改用 JLine 直接實作，另行討論 |
-| Spring Shell 的互動迴圈是否阻擋 `ApplicationReadyEvent` | 階段二第一步 | 無論結果都改用 `SmartLifecycle` |
-| 能否取得 JLine `LineReader` 以使用 `printAbove()` | 階段二 | 退回直接輸出 |
-| Spring Shell 的 `quit` 會關閉 context，IRC 正常送出 QUIT | 階段二 | 補上 shutdown 處理 |
-| 未設定 `otel` profile 時，OTel starter 不會嘗試匯出 log、metrics、traces | 階段一 | 在預設設定中明確關閉 |
+| Spring Shell 4.0.3 能在 Boot 4.1.1 上啟動與執行指令 | ✅ 已驗證（2026-10-16） | 可以；需另加 `spring-shell-jline` |
+| Spring Shell 的互動迴圈是否阻擋 `ApplicationReadyEvent` | ✅ 已驗證 | 會（shell 是 `ApplicationRunner`），已改用 `SmartLifecycle` |
+| 能否取得 JLine `LineReader` 以使用 `printAbove()` | ✅ 已驗證 | 可以（bean `lineReader`） |
+| Spring Shell 的 `quit` 會關閉 context，IRC 正常送出 QUIT | ✅ 已驗證 | 需 `spring.main.keep-alive=false`；`spring.shell.context.close=true` 會 exit 1，不採用 |
+| 未設定 `otel` profile 時，OTel starter 不會嘗試匯出 log、metrics、traces | ✅ 已驗證（階段一） | 不會 |
 | BanchoBot 對 `!mp invite` 含空白的名稱是否有效 | 使用者實測 | 改為把空白換成底線 |
 | 超過 4 間房時 BanchoBot 的回覆 | 使用者實測 | 目前以逾時處理 |
 
