@@ -17,6 +17,8 @@ import idv.alexlin7.tw.bancho.match.event.MatchEvent;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.BeatmapChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchClosed;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchCreated;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchStarted;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchAborted;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.ModsChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerInvited;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerJoined;
@@ -38,7 +40,7 @@ class BanchoBotParserTest {
         return parse("BanchoBot", target, text);
     }
 
-    /** 全部取自 2026-10-16 實測的 BanchoBot 原文。 */
+    /** 取自實測原文；FreeMod 的 enabled 分支沿用既有格式。 */
     static Stream<Arguments> realSamples() {
         return Stream.of(
                 Arguments.of("test_user", "Created the tournament match https://osu.ppy.sh/mp/122021273 測試房",
@@ -46,6 +48,10 @@ class BanchoBotParserTest {
                 Arguments.of("test_user", "Created the tournament match https://osu.ppy.sh/mp/5 第一場 練習",
                         new MatchCreated(5, "第一場 練習")),
                 Arguments.of(ROOM, "Closed the match", new MatchClosed(ROOM_ID)),
+                Arguments.of("#mp_42", "The match has started!", new MatchStarted(42)),
+                Arguments.of("#mp_42", "Aborted the match", new MatchAborted(42)),
+                Arguments.of("#mp_42", "Disabled all mods, disabled FreeMod", new ModsChanged(42, List.of(), false)),
+                Arguments.of("#mp_42", "Disabled all mods, enabled FreeMod", new ModsChanged(42, List.of(), true)),
                 Arguments.of(ROOM, "Invited Alexlin86 to the room", new PlayerInvited(ROOM_ID, "Alexlin86")),
                 Arguments.of(ROOM, "Alexlin86 joined in slot 1.", new PlayerJoined(ROOM_ID, "Alexlin86", 1)),
                 Arguments.of(ROOM, "Alexlin86 moved to slot 2", new PlayerMoved(ROOM_ID, "Alexlin86", 2)),
@@ -81,9 +87,25 @@ class BanchoBotParserTest {
     @ValueSource(strings = {
             "Room name: 測試房, History: https://osu.ppy.sh/mp/122021273",
             "Team mode: HeadToHead, Win condition: ScoreV2",
-            "Players: 1"})
+            "Players: 1", "Started the match", "Countdown ends in 10 seconds", "Countdown ends in 1 second",
+            "Countdown finished", "Changed the match password", "Active mods: NoFail, Hidden"})
     void ignoresKnownSettingsLines(String text) {
         assertThat(parse(ROOM, text)).isEqualTo(new Result.Ignored());
+    }
+
+    @Test
+    void stillReportsErrorRepliesAsUnrecognized() {
+        for (String text : List.of("User not found: alexlin7", "You have too many referees! Remove some to add new ones.")) {
+            assertThat(parse(ROOM, text)).isEqualTo(new Result.Unrecognized(ROOM_ID, text));
+        }
+    }
+
+    @Test
+    void channelOnlyRulesDoNotApplyToPrivateMessages() {
+        assertThat(parse("test_user", "The match has started!"))
+                .isEqualTo(new Result.Unrecognized(null, "The match has started!"));
+        assertThat(parse("test_user", "Countdown finished"))
+                .isEqualTo(new Result.Unrecognized(null, "Countdown finished"));
     }
 
     @Test

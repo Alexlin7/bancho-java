@@ -8,6 +8,8 @@ import idv.alexlin7.tw.bancho.match.event.MatchEvent;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.BeatmapChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchClosed;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchCreated;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchStarted;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchAborted;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.ModsChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerInvited;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerJoined;
@@ -38,6 +40,7 @@ public record MatchState(String name, boolean closed, Settings settings, Beatmap
             case MatchCreated created -> name == null ? withName(created.name()) : this;
             case MatchClosed _ -> new MatchState(name, true, settings, beatmap, mods, slots);
             case PlayerInvited _ -> this;
+            case MatchStarted _, MatchAborted _ -> this;
             case PlayerJoined joined -> withPlayerAt(joined.slot(), new Slot(joined.username(), null, null));
             case PlayerMoved moved -> withPlayerAt(moved.slot(), new Slot(moved.username(), null, null));
             case PlayerLeft left -> withSlots(without(left.username()));

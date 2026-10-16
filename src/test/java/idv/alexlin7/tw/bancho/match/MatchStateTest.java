@@ -14,6 +14,8 @@ import idv.alexlin7.tw.bancho.match.MatchState.Slot;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.BeatmapChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchClosed;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchCreated;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchStarted;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchAborted;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.ModsChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerInvited;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerJoined;
@@ -99,6 +101,21 @@ class MatchStateTest {
     @Test
     void createdFillsUnknownName() {
         assertThat(MatchState.initial(null).apply(new MatchCreated(1, "測試房")).name()).isEqualTo("測試房");
+    }
+
+    @Test
+    void disabledAllModsClearsMods() {
+        MatchState state = initial.apply(new ModsChanged(42, List.of("Hidden"), false))
+                .apply(new ModsChanged(42, List.of(), false));
+        assertThat(state.mods()).isEqualTo(new ModSelection(List.of(), false));
+    }
+
+    @Test
+    void startedAndAbortedKeepState() {
+        MatchState state = initial.apply(new PlayerJoined(42, "A", 1))
+                .apply(new ModsChanged(42, List.of("Hidden"), false));
+        assertThat(state.apply(new MatchStarted(42))).isEqualTo(state);
+        assertThat(state.apply(new MatchAborted(42))).isEqualTo(state);
     }
 
     @Test
