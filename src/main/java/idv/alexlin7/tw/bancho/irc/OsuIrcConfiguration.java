@@ -2,9 +2,7 @@ package idv.alexlin7.tw.bancho.irc;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -21,12 +19,12 @@ public class OsuIrcConfiguration {
     }
 
     /**
-     * 等 ApplicationReadyEvent 才連線：避免在 context refresh 途中做網路 I/O，
-     * refresh 失敗時也不會留下已建立的連線。設 {@code osu.irc.auto-start=false} 可關閉（例如測試）。
+     * context refresh 完成時連線（在 ApplicationRunner 之前），關閉時送出 QUIT。
+     * 設 {@code osu.irc.auto-start=false} 可關閉（例如測試）。
      */
     @Bean
     @ConditionalOnProperty(prefix = "osu.irc", name = "auto-start", havingValue = "true", matchIfMissing = true)
-    public ApplicationListener<ApplicationReadyEvent> osuIrcAutoStarter(OsuIrcClient client) {
-        return event -> client.start();
+    OsuIrcLifecycle osuIrcLifecycle(OsuIrcClient client) {
+        return new OsuIrcLifecycle(client);
     }
 }

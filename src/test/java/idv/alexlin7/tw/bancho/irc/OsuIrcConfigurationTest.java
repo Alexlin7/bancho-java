@@ -12,8 +12,12 @@ import idv.alexlin7.tw.bancho.match.MatchConfiguration;
 
 class OsuIrcConfigurationTest {
 
+    private static final Duration WAIT = Duration.ofSeconds(3);
+
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
-            .withUserConfiguration(OsuIrcConfiguration.class);
+            .withUserConfiguration(OsuIrcConfiguration.class)
+            // 預設不自動連線，避免測試連到真的 cho.ppy.sh；需要時各測試再覆寫成 true
+            .withPropertyValues("osu.irc.auto-start=false");
 
     @Test
     void failsFastWhenCredentialsAreMissing() {
@@ -46,10 +50,35 @@ class OsuIrcConfigurationTest {
     @Test
     void autoStarterCanBeDisabled() {
         String[] credentials = {"osu.irc.username=someone", "osu.irc.password=secret"};
-        runner.withPropertyValues(credentials)
-                .run(context -> assertThat(context).hasBean("osuIrcAutoStarter"));
+        runner.withPropertyValues(credentials).withPropertyValues("osu.irc.auto-start=true", "osu.irc.host=127.0.0.1",
+                        "osu.irc.port=1")
+                .run(context -> assertThat(context).hasBean("osuIrcLifecycle"));
         runner.withPropertyValues(credentials).withPropertyValues("osu.irc.auto-start=false")
-                .run(context -> assertThat(context).doesNotHaveBean("osuIrcAutoStarter"));
+                .run(context -> assertThat(context).doesNotHaveBean("osuIrcLifecycle"));
+    }
+
+    @Test
+    void lifecycleConnectsOnContextStartAndQuitsOnClose() throws Exception {
+        try (FakeIrcServer server = new FakeIrcServer()) {
+            runner.withPropertyValues("osu.irc.auto-start=true", "osu.irc.host=127.0.0.1", "osu.irc.port=" + server.port(),
+                    "osu.irc.username=someone", "osu.irc.password=secret", "osu.irc.timing.send-interval=0ms")
+                    .run(context -> {
+                        assertThat(server.awaitConnection(WAIT)).isTrue();
+                        assertThat(server.awaitLine("NICK someone", WAIT)).isNotNull();
+                        server.welcome();
+                        assertThat(server.awaitLine(line -> line.startsWith("PING"), Duration.ofMillis(300))).isNull();
+                    });
+            assertThat(server.awaitLine("QUIT :Shutdown", WAIT)).isNotNull();
+        }
+    }
+
+    @Test
+    void lifecycleNotCreatedWhenAutoStartDisabled() throws Exception {
+        try (FakeIrcServer server = new FakeIrcServer()) {
+            runner.withPropertyValues("osu.irc.host=127.0.0.1", "osu.irc.port=" + server.port(),
+                    "osu.irc.username=someone", "osu.irc.password=secret", "osu.irc.auto-start=false")
+                    .run(context -> assertThat(server.awaitConnection(Duration.ofSeconds(1))).isFalse());
+        }
     }
 
     @Test
