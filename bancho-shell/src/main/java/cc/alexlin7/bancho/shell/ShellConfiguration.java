@@ -3,6 +3,7 @@ package cc.alexlin7.bancho.shell;
 import java.nio.file.Path;
 import java.time.Clock;
 
+import org.jline.reader.History;
 import org.jline.reader.LineReader;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +15,12 @@ import cc.alexlin7.bancho.irc.OsuIrcClient;
 
 @Configuration
 class ShellConfiguration {
+
+    /** 取代 Spring Shell 的 {@code @ConditionalOnMissingBean} history：帶房間密碼的指令不寫進歷史檔。 */
+    @Bean
+    History history() {
+        return new PasswordSafeHistory();
+    }
 
     /**
      * 有 JLine 的 LineReader 時用 printAbove，訊息會印在輸入行上方；沒有時（例如測試）直接印到 stdout。

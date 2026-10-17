@@ -89,9 +89,14 @@ public class MatchCommands {
                     + " 釋放名額（之後不能再用這個房名）"));
             lastMake.set(creation.room().whenComplete((room, error) -> {
                 if (error == null) {
-                    session.use(room.matchId());
-                    String late = creation.unknown().isDone() ? "（晚到的回覆）" : "";
-                    out.println("房間已建立" + late + "：" + room.channel() + " " + name);
+                    if (creation.unknown().isDone()) {
+                        // 使用者可能已經在另一間房主持，晚到的房間不能悄悄變成目前房間（之後的 start、close 會打錯房）
+                        out.println("房間已建立（晚到的回覆）：" + room.channel() + " " + name + "；用 use "
+                                + room.matchId() + " 切換過去");
+                    } else {
+                        session.use(room.matchId());
+                        out.println("房間已建立：" + room.channel() + " " + name);
+                    }
                     applyPreset(room, preset, template);
                 } else if (!(unwrap(error) instanceof CancellationException)) {
                     // 被 drop 時以 cancel 結束，drop 指令本身已經回覆過
