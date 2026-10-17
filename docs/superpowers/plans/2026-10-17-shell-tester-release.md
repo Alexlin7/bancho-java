@@ -114,7 +114,7 @@
 
 **Interfaces:**
 - Produces:
-  - `IrcSender` 新增 `default void sendMessage(String target, String message, Runnable onSent)`：預設實作呼叫兩參數版本後立即 `onSent.run()`（`RecordingIrcSender` 因此不必改）。`OsuIrcClient` 覆寫：`onSent` 在 sender thread 上、該行**實際寫出成功後**呼叫；斷線重送時只在最後成功那次呼叫；`close()` 後未送出的不呼叫。出站佇列改存 `(line, onSent)`。
+  - `IrcSender` 新增 `default void sendMessage(String target, String message, Runnable onSent)`：預設實作呼叫兩參數版本後立即 `onSent.run()`（`RecordingIrcSender` 因此不必改）。javadoc 寫明：預設實作只對「兩參數方法同步送出」的實作才符合「實際送出後通知」；以佇列或其他方式非同步送出的實作**必須覆寫**這個方法。CLAUDE.md 的 `IrcSender` 段落同步註明。`OsuIrcClient` 覆寫：`onSent` 在 sender thread 上、該行**實際寫出成功後**呼叫；斷線重送時只在最後成功那次呼叫；`close()` 後未送出的不呼叫。`onSent` 拋出例外時只記 log：該行視為已送出、不重送，sender thread 繼續處理下一行。出站佇列改存 `(line, onSent)`。
   - `OsuIrcClient.setOutboundRedactor(UnaryOperator<String> redactor)`：預設 identity。套用在 (1) `-> line` 的 DEBUG log、(2) 超過 512 bytes 截斷時的 WARN、(3) `IrcTrafficListener.sent` 收到的行。實際送出的內容不變。截斷 WARN 改為記錄遮蔽後的整行。
   - ```java
     /** 原始 IRC 行的觀察者（例如記錄樣本）。例外只記 log，不影響連線。 */
@@ -131,6 +131,7 @@
 - [ ] **Step 1: 寫失敗的測試**
 ```java
 @Test void onSentRunsOnlyAfterLineIsWritten()          // 尚未 welcome 時 sendMessage("BanchoBot","!mp make r", latch::countDown) → latch 在 SHORT 內未歸零；welcome 後 awaitLine("PRIVMSG BanchoBot :!mp make r") 且 latch 歸零
+@Test void onSentExceptionDoesNotResendOrStopSender()  // 第一則的 onSent 丟 RuntimeException；server 只收到一次該行（再 send 第二則並 awaitLine 後，確認第一則出現次數為 1）；第二則照常送出且其 onSent 有執行
 @Test void reportsRawInboundLinesWithTrailingSpaces()  // server.send(":BanchoBot!cho@ppy.sh PRIVMSG #mp_1 :Slot 1  Not Ready https://osu.ppy.sh/u/1 A   ") → received 收到完全相同的字串
 @Test void reportsSentLinesButNeverRegistration()      // sent 收到 "PRIVMSG BanchoBot :!mp make r"；所有 sent 都不以 PASS/NICK/USER 開頭
 @Test void redactorAppliesToLogsAndListenersNotWire(CapturedOutput output)
@@ -218,6 +219,8 @@
 ```java
 @Test void timeoutTurnsUnknownAndKeepsSlot()      // c.unknown() 在 WAIT 內完成；c.room() 未完成；pendingMatches() == [PendingMatch("r", UNKNOWN)]；usedSlots() == 1
 @Test void unsentRequestNeverTimesOut()           // HeldSender：等 3 倍逾時後 c.unknown() 仍未完成、狀態 CREATING、drop("r") 為 false；執行 onSent 後 unknown 在 WAIT 內完成
+@Test void replyBeforeOnSentStaysSuccessful()     // HeldSender：MatchCreated(3,"r") 先到 → 再執行 onSent → 等超過逾時：c.room() 已完成、c.unknown() 未完成、pendingMatches() 為空、usedSlots() == 1
+@Test void staleTimerDoesNotAffectNewSameNameRequest() // HeldSender：r 送出（執行 onSent）→ MatchCreated(3,"r") 成功 → MatchClosed(3) → 再 createMatch("r")（不執行 onSent）→ 等超過第一個計時器的時間：新請求仍是 CREATING、unknown 未完成
 @Test void unknownBlocksSameNameOnly()            // r 結果未知後 createMatch("r") 的訊息含 "drop"；createMatch("s") 成功；sender.calls 只有兩則 make
 @Test void lateReplyCompletesUnknownRequest()     // r 結果未知 → MatchCreated(7,"r") → c.room().join().matchId() == 7；pendingMatches() 為空；usedSlots() == 1
 @Test void fifthRoomRejectedLocally()             // attach(1)；a、b 成功；c 留在 CREATING → usedSlots() == 4；createMatch("d") 訊息 "名額已滿（4/4）"，不送 make
@@ -228,7 +231,7 @@
 @Test void passivelyTrackedRoomCountsTowardSlots()// 未登記房號的 PlayerJoined → usedSlots() == 1
 ```
 - [ ] **Step 2: 跑測試確認失敗**：`./mvnw -pl bancho-match test -Dtest=MatchServiceTest` → 編譯失敗
-- [ ] **Step 3: 實作**：請求存在 `LinkedHashMap<String, Request>`（`synchronized` 保護）；drop 名單為 `Set<String>`。`MatchReplayIntegrationTest`、`bancho-match-spring` 用到 `createMatch` 處一併調整。CLAUDE.md 的 `MatchService` 段落改寫：名額 4、送出後才計時、結果未知只擋同名、drop 與房名不可重用。
+- [ ] **Step 3: 實作**：請求存在 `LinkedHashMap<String, Request>`（`synchronized` 保護）；drop 名單為 `Set<String>`。`onSent` 與計時器都綁定**那一個 `Request` 物件**：只在 map 中同名的仍是同一個物件、且狀態仍是 `CREATING` 時才排定計時或改成 `UNKNOWN`，已完成或已被取代的請求一律略過。`MatchReplayIntegrationTest`、`bancho-match-spring` 用到 `createMatch` 處一併調整。CLAUDE.md 的 `MatchService` 段落改寫：名額 4、送出後才計時、結果未知只擋同名、drop 與房名不可重用。
 - [ ] **Step 4: 跑 `./mvnw -pl bancho-match,bancho-match-spring -am test`** → PASS
 - [ ] **Step 5: Commit** `feat(match): 建房名額與結果未知，送出後才計時，drop 後房名不可重用`
 
