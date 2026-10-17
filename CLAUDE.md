@@ -65,7 +65,7 @@ JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行：
 
 互動 shell 的終端機只顯示 WARN 以上，完整 INFO log 寫到 `logs/bancho.log`（相對於啟動工作目錄），以 `BANCHO_LOG_FILE` 可改成其他相對或絕對路徑。沿用 Boot 的滾動檔案設定：`LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE` 預設 `10MB`，`LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY` 預設 `7` 天；`otel` profile 仍同時匯出紀錄。Spring Shell 的指令歷史存在 `<工作目錄>/bancho-history`（`spring.shell.history.name`；預設的 `${spring.application.name}.log` 容易和 log 混淆），測試關閉歷史。日後若改成不開 shell 的執行方式，也要把 `logging.threshold.console` 改回 INFO。
 
-執行前需提供 IRC 憑證（從 https://osu.ppy.sh/home/account/edit#legacy-api 取得 IRC 密碼，不是帳號密碼），建議用環境變數而非寫進 `application.properties`：
+IRC 憑證（從 https://osu.ppy.sh/home/account/edit#legacy-api 取得 IRC 密碼，不是帳號密碼）：shell 開啟了 `osu.irc.deferred-login`，沒設定時照常啟動並提示「尚未登入，請先執行 login」，在 shell 中以 `login` 依提示輸入（密碼遮蔽、不寫入歷史與硬碟）；也可用環境變數自動登入，不要寫進 `application.properties`：
 
 ```
 OSU_IRC_USERNAME=...  OSU_IRC_PASSWORD=...
@@ -131,6 +131,7 @@ bancho:
 - **`ShellOutput`**：有 JLine `LineReader` 時用 `printAbove`，訊息印在輸入行上方。**`ShellMessagePrinter`** 把收到的 IRC 訊息印出來。
 - **`ShellCompletions`**：`CompletionProvider` bean（`roomCompletion`、`roomOptionCompletion`、`userCompletion`、`modsCompletion`、`makeCompletion`、`mapCompletion`），名稱即 `@Command(completionProvider = ...)` 的值。Spring Shell 會自己補選項名稱，provider 只給值。**`KnownUsers`** 收集房間事件、私訊與範本名單中的使用者名稱。
 - **`ShellLineEditing`**（BeanPostProcessor）：JLine 補全改為不分大小寫；parser 只把雙引號當引號（預設單引號也算，`say I'm ready` 會卡在等待補引號）。並把 `JLineInputProvider` 換成 **`InterruptAwareInputProvider`**：Spring Shell 預設按一次 Ctrl+C 就結束 shell，改成輸入到一半只清掉該行、空行按一次提示、2 秒內再按一次才離開（判斷在 `CtrlCGuard`）；Ctrl+D 仍直接離開。`mvn spring-boot:run` 時 Maven 自己也會收到 Ctrl+C 並結束子程序，實際使用請用 `java -jar`。
+- **`LoginCommands`**（`login`）、**`LoginGuard`**、**`ConnectionStatusPrinter`**：會送 IRC 的指令（`make`、`attach`、房間操作、`mp`、`password`、`say`、`msg`）只在連線狀態為 `REGISTERED` 時放行，在 `InputGuard` 之後、任何提示之前檢查；`IDLE`／`AUTH_FAILED` 回「請先 login」，`CONNECTING`（含斷線重連中）回「正在連線 Bancho，請等登入完成」，避免指令留在佇列、帳密被拒後重試時意外送出。`use`、`rooms`、`drop` 不受限。登入成功與認證失敗印在畫面上（終端機只顯示 WARN 以上）。`@SpringBootTest` 的 client 不連線，`TestLoginGuardConfiguration` 以 `@Primary` 的 guard 視為已登入。
 - 內建 `help`、`quit`。Tab 補全要在真正的終端機（Windows Terminal、IntelliJ 的 Terminal 分頁），IntelliJ 的 Run 視窗沒有補全。
 
 ### `observability`

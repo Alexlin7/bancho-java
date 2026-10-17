@@ -28,8 +28,11 @@ public class ChatCommands {
     private final IrcSender sender;
     private final RoomResolver rooms;
     private final TextPrompt prompt;
+    private final LoginGuard loginGuard;
 
-    public ChatCommands(IrcSender sender, ShellSession session, MatchService matchService, TextPrompt prompt) {
+    public ChatCommands(IrcSender sender, ShellSession session, MatchService matchService, TextPrompt prompt,
+                        LoginGuard loginGuard) {
+        this.loginGuard = loginGuard;
         this.sender = sender;
         this.rooms = new RoomResolver(matchService, session);
         this.prompt = prompt;
@@ -41,6 +44,9 @@ public class ChatCommands {
                       @Option(longName = "room", description = "房號（預設為目前房間）") Long room,
                       CommandContext context) {
         String invalid = InputGuard.check(context, InputGuard.ANY, "room");
+        if (invalid == null) {
+            invalid = loginGuard.check();
+        }
         if (invalid != null) {
             return invalid;
         }
@@ -56,6 +62,9 @@ public class ChatCommands {
             help = InputGuard.MSG_ESCAPE_HELP)
     public String msg(@Arguments List<String> targetWords, CommandContext context) {
         String invalid = InputGuard.check(context, InputGuard.ANY);
+        if (invalid == null) {
+            invalid = loginGuard.check();
+        }
         if (invalid != null) {
             return invalid;
         }
