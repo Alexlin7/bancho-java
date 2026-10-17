@@ -1,0 +1,63 @@
+# 推送 shell-vX.Y.Z tag 時發布 shell 測試版（GitHub pre-release）：可執行 jar 與內含 runtime 的 Windows zip。
+# 版本取自 tag，與根 pom 的 <revision>、Maven Central 無關；v* tag 仍專用於 Central。
+name: shell release
+
+on:
+  push:
+    tags:
+      - 'shell-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: 由 tag 取得版本
+        id: version
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^shell-v', ''
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "tag 必須是 shell-vX.Y.Z：$env:GITHUB_REF_NAME"
+          }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: 測試並打包
+        run: ./mvnw.cmd -B package
+
+      - name: 產生發布檔案
+        id: artifacts
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          $jars = @(Get-ChildItem bancho-shell/target -Filter 'bancho-shell-*.jar' |
+            Where-Object { $_.Name -notmatch '-(sources|javadoc)\.jar$' })
+          if ($jars.Count -ne 1) { throw "預期剛好一個可執行 jar，找到：$($jars.Name -join ', ')" }
+          $jar = $jars[0]
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $releaseJar = "dist/bancho-shell-$env:VERSION.jar"
+          Copy-Item -LiteralPath $jar.FullName -Destination $releaseJar
+          pwsh -NoProfile -File bancho-shell/src/dist/package-windows.ps1 -Version $env:VERSION -Jar $jar.FullName -OutDir dist
+          if ($LASTEXITCODE -ne 0) { throw 'jpackage 打包失敗' }
+
+      - name: 建立 GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME --prerelease `
+            --title "bancho-shell $env:VERSION" `
+            --notes "測試版，使用方式見 zip 內的使用說明.txt" `
+            "dist/bancho-shell-$env:VERSION.jar" "dist/bancho-shell-$env:VERSION-windows.zip"

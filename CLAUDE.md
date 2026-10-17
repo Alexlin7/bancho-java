@@ -60,6 +60,10 @@ git commit -am "build: 版本 X.Y.Z" && git tag -a vX.Y.Z -m "bancho X.Y.Z"
 
 `release` profile 用 `central-publishing-maven-plugin`（0.12.0 修正了 Maven 3.10.0 被拒的問題；不支援 Maven 4；它與 `maven-gpg-plugin` 不受 Boot 管理，版本寫在根 pom），憑證是 `~/.m2/settings.xml` 中 id 為 `central` 的 server（Central Portal 產生的 user token）。skip 類設定以屬性串接（`maven.javadoc.skip`、`gpg.skip` 等），不要寫死在 plugin configuration，否則命令列的 `-D` 無法覆寫。javadoc 以 `doclint=all,-missing` 執行，格式錯誤（例如 record 類別上的 `@throws`）會讓發布失敗。
 
+### 發布 shell 測試版
+
+shell 測試版以 `shell-vX.Y.Z` tag 發布：`git tag -a shell-vX.Y.Z -m "bancho-shell X.Y.Z" && git push origin shell-vX.Y.Z`。`.github/workflows/shell-release.yml` 在 Windows runner 上跑測試、打包，建立 GitHub pre-release，附 `bancho-shell-X.Y.Z.jar` 與 `bancho-shell-X.Y.Z-windows.zip`（`package-windows.ps1` 產生）。版本取自 tag，不改 pom、不 commit，與 `<revision>` 及 Central 無關（jar 內的 Maven 版本可以和檔名不同）；`v*` tag 仍專用於 Central。tag 必須是三段數字，jpackage 的 `--app-version` 不接受其他格式。
+
 OpenTelemetry：預設不匯出任何資料；`otel` profile（`application-otel.properties`）把 log 與 metrics 用 HTTP 送到本機 collector 的 4318。log 透過 `logback-spring.xml` 的 `OpenTelemetryAppender` 送出，由 `observability.OpenTelemetryAppenderInitializer` 接上 SDK。`opentelemetry-logback-appender-1.0` 的版本必須對應 Boot 管理的 OTel API 版本（Boot 4.1.1 → API 1.62.0 → appender 2.28.1-alpha），不可單獨升級。metrics 匯出的預設關閉寫在前端模組的 `application.properties`（`application.properties` 不能放在函式庫模組，會和前端的同名檔互相遮蔽）；各模組測試的 `application.properties` 會遮蔽 main 的同名檔，也要關閉。
 
 JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行：JLine 以 FFM 操作 Windows 主控台（JEP 472），已明確授權——jar 的 manifest 有 `Enable-Native-Access: ALL-UNNAMED`（實測對 fat jar 內層 jar 有效），`spring-boot:run` 由 plugin 的 `jvmArguments` 帶入。protobuf 的 `sun.misc.Unsafe::arrayBaseOffset` 警告（JEP 498）來自 OTLP metrics 的依賴（`micrometer-registry-otlp` → `opentelemetry-proto` → `protobuf-java`），無法由我們修正，目前不處理；shell 前端日後若不再依賴 `bancho-observability`，警告會一起消失。日後 JDK 預設改為 deny 時，仍帶 OTel 的模組要升級 protobuf 或加 `--sun-misc-unsafe-memory-access=allow`。不要用 `--illegal-native-access=allow` 這類全域開關。
