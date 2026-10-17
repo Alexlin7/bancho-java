@@ -13,17 +13,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 ./mvnw compile                                   # 編譯
 ./mvnw test                                      # 跑全部測試
-./mvnw test -Dtest=OsuIrcClientTest              # 跑單一測試類別
-./mvnw test -Dtest=OsuIrcClientTest#answersServerPing   # 跑單一測試方法
-./mvnw package                                   # 打包 jar
-java -jar target/bancho-0.0.1-SNAPSHOT.jar       # 啟動（需設定 osu.irc.* 憑證；終端機輸入要在真正的終端機裡）
-./mvnw spring-boot:run                           # 開發時啟動（pom 已帶 --enable-native-access=ALL-UNNAMED）
-java -jar target/bancho-0.0.1-SNAPSHOT.jar --spring.profiles.active=otel   # 同時把 log、metrics 送到 localhost:4318
+./mvnw -pl bancho-irc test -Dtest=OsuIrcClientTest                      # 跑單一模組的單一測試類別
+./mvnw -pl bancho-irc test -Dtest=OsuIrcClientTest#answersServerPing    # 跑單一測試方法
+./mvnw -pl bancho-shell -am test -Dtest=MatchCommandsTest -Dsurefire.failIfNoSpecifiedTests=false   # 連同依賴模組一起編譯
+./mvnw package                                   # 打包；可執行 jar 在 bancho-shell/target/
+java -jar bancho-shell/target/bancho-shell-0.0.1-SNAPSHOT.jar       # 啟動（需設定 osu.irc.* 憑證；終端機輸入要在真正的終端機裡）
+./mvnw -pl bancho-shell -am compile spring-boot:run                 # 開發時啟動（帶 --enable-native-access=ALL-UNNAMED，工作目錄為專案根目錄）
+java -jar bancho-shell/target/bancho-shell-0.0.1-SNAPSHOT.jar --spring.profiles.active=otel   # 同時把 log、metrics 送到 localhost:4318
 ```
 
-OpenTelemetry：預設不匯出任何資料；`otel` profile（`application-otel.properties`）把 log 與 metrics 用 HTTP 送到本機 collector 的 4318。log 透過 `logback-spring.xml` 的 `OpenTelemetryAppender` 送出，由 `observability.OpenTelemetryAppenderInitializer` 接上 SDK。`opentelemetry-logback-appender-1.0` 的版本必須對應 Boot 管理的 OTel API 版本（Boot 4.1.1 → API 1.62.0 → appender 2.28.1-alpha），不可單獨升級。測試的 `application.properties` 會遮蔽 main 的同名檔，兩邊都要關閉 metrics 匯出。
+### Maven 模組
 
-JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行：JLine 以 FFM 操作 Windows 主控台（JEP 472），已明確授權——jar 的 manifest 有 `Enable-Native-Access: ALL-UNNAMED`（實測對 fat jar 內層 jar 有效），`spring-boot:run` 由 plugin 的 `jvmArguments` 帶入。protobuf 的 `sun.misc.Unsafe::arrayBaseOffset` 警告（JEP 498）來自 OTLP metrics 的依賴（`micrometer-registry-otlp` → `opentelemetry-proto` → `protobuf-java`），無法由我們修正，目前不處理；之後拆成 monorepo 時 shell 前端預計不帶 OTel，警告會一起消失。日後 JDK 預設改為 deny 時，仍帶 OTel 的模組要升級 protobuf 或加 `--sun-misc-unsafe-memory-access=allow`。不要用 `--illegal-native-access=allow` 這類全域開關。
+根目錄 `pom.xml`（`bancho-parent`，packaging `pom`）繼承 `spring-boot-starter-parent`，集中管理內部模組與 Boot 不管理的版本（Spring Shell、OTel appender），所有模組共用 Lombok 與 annotation processor 設定。
+
+| 模組 | 內容 |
+|---|---|
+| `bancho-irc` | `irc` 套件；另外產生 test-jar（`FakeIrcServer`、`RecordingIrcSender`），其他模組以 `<type>test-jar</type>` 依賴。不能拆成獨立模組：它依賴 irc，而 irc 自己的測試也要用它，會形成循環 |
+| `bancho-match` | `match` 套件與 `banchobot/` 樣本 |
+| `bancho-observability` | `observability` 套件、`logback-spring.xml`、`application-otel.properties`；`@SpringBootTest` 由 test 的 `ObservabilityTestApplication` 啟動 |
+| `bancho-shell` | 唯一可執行的模組：`BanchoApplication`、`shell` 套件、`application.properties` |
+| `bancho-discord` | 尚未實作 |
+
+`spring-boot-maven-plugin` 只能宣告在可執行的模組（函式庫被 repackage 後就無法被依賴）；根 pom 設 `spring-boot.run.skip=true`，可執行模組改成 `false`，`-am` 時其他模組才不會被 `spring-boot:run`。package 名稱維持 `cc.alexlin7.bancho.<feature>`，`BanchoApplication` 的元件掃描會涵蓋其他模組的 bean；同一個 package 不要分散在多個模組。
+
+OpenTelemetry：預設不匯出任何資料；`otel` profile（`application-otel.properties`）把 log 與 metrics 用 HTTP 送到本機 collector 的 4318。log 透過 `logback-spring.xml` 的 `OpenTelemetryAppender` 送出，由 `observability.OpenTelemetryAppenderInitializer` 接上 SDK。`opentelemetry-logback-appender-1.0` 的版本必須對應 Boot 管理的 OTel API 版本（Boot 4.1.1 → API 1.62.0 → appender 2.28.1-alpha），不可單獨升級。metrics 匯出的預設關閉寫在前端模組的 `application.properties`（`application.properties` 不能放在函式庫模組，會和前端的同名檔互相遮蔽）；各模組測試的 `application.properties` 會遮蔽 main 的同名檔，也要關閉。
+
+JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行：JLine 以 FFM 操作 Windows 主控台（JEP 472），已明確授權——jar 的 manifest 有 `Enable-Native-Access: ALL-UNNAMED`（實測對 fat jar 內層 jar 有效），`spring-boot:run` 由 plugin 的 `jvmArguments` 帶入。protobuf 的 `sun.misc.Unsafe::arrayBaseOffset` 警告（JEP 498）來自 OTLP metrics 的依賴（`micrometer-registry-otlp` → `opentelemetry-proto` → `protobuf-java`），無法由我們修正，目前不處理；shell 前端日後若不再依賴 `bancho-observability`，警告會一起消失。日後 JDK 預設改為 deny 時，仍帶 OTel 的模組要升級 protobuf 或加 `--sun-misc-unsafe-memory-access=allow`。不要用 `--illegal-native-access=allow` 這類全域開關。
 
 互動 shell 的終端機只顯示 WARN 以上，完整 INFO log 寫到 `logs/bancho.log`（相對於啟動工作目錄），以 `BANCHO_LOG_FILE` 可改成其他相對或絕對路徑。沿用 Boot 的滾動檔案設定：`LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE` 預設 `10MB`，`LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY` 預設 `7` 天；`otel` profile 仍同時匯出紀錄。Spring Shell 的指令歷史存在 `<工作目錄>/bancho-history`（`spring.shell.history.name`；預設的 `${spring.application.name}.log` 容易和 log 混淆），測試關閉歷史。日後若改成不開 shell 的執行方式，也要把 `logging.threshold.console` 改回 INFO。
 
@@ -33,7 +48,7 @@ JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行：
 OSU_IRC_USERNAME=...  OSU_IRC_PASSWORD=...
 ```
 
-`osu.irc.host` / `osu.irc.port` 預設 `cho.ppy.sh` / `6667`；`username`、`password` 有 `@NotBlank`，缺少時啟動直接失敗。`osu.irc.timing.*`（`connect-timeout`、`read-timeout`、`send-interval`、`reconnect-min-delay`、`reconnect-max-delay`）預設值見 `OsuIrcProperties.Timing`。`send-interval` 預設 500ms 是一般帳號的限制（10 則 / 5 秒）；bot 帳號（300 則 / 60 秒）可調到 200ms。`osu.irc.auto-start=false` 可不自動連線，`src/test/resources/application.properties` 就是這樣設定，所以測試不會連到真的 Bancho。
+`osu.irc.host` / `osu.irc.port` 預設 `cho.ppy.sh` / `6667`；`username`、`password` 有 `@NotBlank`，缺少時啟動直接失敗。`osu.irc.timing.*`（`connect-timeout`、`read-timeout`、`send-interval`、`reconnect-min-delay`、`reconnect-max-delay`）預設值見 `OsuIrcProperties.Timing`。`send-interval` 預設 500ms 是一般帳號的限制（10 則 / 5 秒）；bot 帳號（300 則 / 60 秒）可調到 200ms。`osu.irc.auto-start=false` 可不自動連線，`bancho-shell/src/test/resources/application.properties` 就是這樣設定，所以測試不會連到真的 Bancho。
 
 專案根目錄的 `.mcp.json` 設定了 IntelliJ IDEA MCP server（`idea`），可用來 build、跑測試、查 symbol。
 
@@ -106,9 +121,9 @@ Spring Shell 的非互動模式（`SPRING_SHELL_INTERACTIVE_ENABLED=false` 加�
 ## 慣例
 
 - 一律用 Lombok `@Slf4j` 記 log，不要用 `System.out` / `System.err`。log 前綴依 feature：`[osu! IRC]`、`[match]`、`[shell]`。需要可查詢的欄位時用 SLF4J key-value API（`log.atInfo().addKeyValue(...)`），OTel 會轉成 attribute。
-- BanchoBot 的真實樣本放在 `src/test/resources/banchobot/`（`.irc` 檔的行尾空白是原文的一部分）。新增解析規則前先加樣本與測試，不要憑記憶寫格式。`MatchReplayIntegrationTest` 會把樣本整段回放進系統。
+- BanchoBot 的真實樣本放在 `bancho-match/src/test/resources/banchobot/`（`.irc` 檔的行尾空白是原文的一部分）。新增解析規則前先加樣本與測試，不要憑記憶寫格式。`MatchReplayIntegrationTest` 會把樣本整段回放進系統。
 - 會被 SonarQube 掃描：`InterruptedException` 要重設中斷旗標，資源用 try-with-resources 關閉，測試避免 `Thread.sleep`（改用 `FakeIrcServer.awaitLine` / `awaitConnection` 這類有時限的等待）。
-- 測試不得啟動互動 shell：test 的 `application.properties` 設 `spring.shell.interactive.enabled=false`，`src/test/.../TestShellRunnerConfiguration` 以空的 `springShellApplicationRunner` 取代 shell runner，並把 JLine 換成 dumb terminal（測試 JVM 沒有主控台，偵測系統 terminal 要約 40 秒）。它放在根 package，所以每個 `@SpringBootTest` 都會掃描到。要經由真正的 parser / registry 測指令時，用 `new ShellTestClient(commandParser, commandRegistry)`。
+- 測試不得啟動互動 shell：test 的 `application.properties` 設 `spring.shell.interactive.enabled=false`，`bancho-shell/src/test/.../TestShellRunnerConfiguration` 以空的 `springShellApplicationRunner` 取代 shell runner，並把 JLine 換成 dumb terminal（測試 JVM 沒有主控台，偵測系統 terminal 要約 40 秒）。它放在根 package，所以 shell 模組的每個 `@SpringBootTest` 都會掃描到。要經由真正的 parser / registry 測指令時，用 `new ShellTestClient(commandParser, commandRegistry)`。
 - 使用 `ApplicationContextRunner` 載入 `OsuIrcConfiguration` 時，除非就是要測連線，否則要設 `osu.irc.auto-start=false`，否則 `OsuIrcLifecycle` 會在 refresh 時連到真的 cho.ppy.sh。
 - 測試的 OTel service name 是 `bancho-test`，與正式的 `bancho` 區隔。
 - 連線行為的測試使用 `irc.FakeIrcServer`（本機假 IRC server），不要連到真的 Bancho；記錄送訊內容用 `irc.RecordingIrcSender`。
