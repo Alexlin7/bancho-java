@@ -71,7 +71,7 @@ JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行：
 OSU_IRC_USERNAME=...  OSU_IRC_PASSWORD=...
 ```
 
-`osu.irc.host` / `osu.irc.port` 預設 `cho.ppy.sh` / `6667`；`username`、`password` 必填，空白時建立 client 就失敗（訊息為 `osu.irc.username 不得空白`）。`osu.irc.timing.*`（`connect-timeout`、`read-timeout`、`send-interval`、`reconnect-min-delay`、`reconnect-max-delay`）預設值見 `OsuIrcSettings.Timing`。`send-interval` 預設 625ms：一般帳號上限 10 則 / 5 秒，保留 20% 餘裕；bot 帳號（300 則 / 60 秒）同樣保留餘裕可調到 240ms。`osu.irc.auto-start=false` 可不自動連線，`bancho-shell/src/test/resources/application.properties` 就是這樣設定，所以測試不會連到真的 Bancho。
+`osu.irc.host` / `osu.irc.port` 預設 `cho.ppy.sh` / `6667`；`username`、`password` 必填，空白或完全沒設定時建立 client 就失敗（訊息為 `osu.irc.username 不得空白`）；例外是 `osu.irc.deferred-login=true` 且帳密都空白：client 照常建立但不連線（狀態 `IDLE`，lifecycle 記 INFO「未設定帳密，等待 login」），由應用程式稍後呼叫 `OsuIrcClient.login`。`OsuIrcProperties` 保留原本的五參數建構子（`deferredLogin=false`）。`osu.irc.timing.*`（`connect-timeout`、`read-timeout`、`send-interval`、`reconnect-min-delay`、`reconnect-max-delay`）預設值見 `OsuIrcSettings.Timing`。`send-interval` 預設 625ms：一般帳號上限 10 則 / 5 秒，保留 20% 餘裕；bot 帳號（300 則 / 60 秒）同樣保留餘裕可調到 240ms。`osu.irc.auto-start=false` 可不自動連線，`bancho-shell/src/test/resources/application.properties` 就是這樣設定，所以測試不會連到真的 Bancho。
 
 專案根目錄的 `.mcp.json` 設定了 IntelliJ IDEA MCP server（`idea`），可用來 build、跑測試、查 symbol。
 
