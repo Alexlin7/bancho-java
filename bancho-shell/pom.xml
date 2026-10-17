@@ -8,9 +8,12 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
     <artifactId>bancho-shell</artifactId>
+    <name>bancho-shell</name>
     <description>Spring Shell 互動前端（可執行）</description>
 
     <properties>
+        <!-- 不發布到 Maven Central -->
+        <bancho.publish.skip>true</bancho.publish.skip>
         <spring-boot.run.skip>false</spring-boot.run.skip>
     </properties>
 

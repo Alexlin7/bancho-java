@@ -8,6 +8,7 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
     <artifactId>bancho-irc</artifactId>
+    <name>bancho-irc</name>
     <description>osu! Bancho IRC client，不依賴任何框架</description>
 
     <!-- 只依賴 slf4j-api：log 後端由使用者決定，不要加入 Spring 或 logback -->

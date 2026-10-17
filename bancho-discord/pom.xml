@@ -8,7 +8,13 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
     <artifactId>bancho-discord</artifactId>
+    <name>bancho-discord</name>
     <description>Discord 前端（尚未實作）</description>
+
+    <properties>
+        <!-- 不發布到 Maven Central -->
+        <bancho.publish.skip>true</bancho.publish.skip>
+    </properties>
 
     <dependencies>
         <dependency>

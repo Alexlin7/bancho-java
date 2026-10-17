@@ -8,6 +8,7 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
     <artifactId>bancho-irc-spring</artifactId>
+    <name>bancho-irc-spring</name>
     <description>bancho-irc 的 Spring Boot auto-configuration（osu.irc.* 設定、連線生命週期）</description>
 
     <!-- 依賴 autoconfigure 而不是 starter，才不會替使用者決定 log 後端 -->

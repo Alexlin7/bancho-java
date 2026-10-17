@@ -24,7 +24,7 @@ java -jar bancho-shell/target/bancho-shell-0.0.1-SNAPSHOT.jar --spring.profiles.
 
 ### Maven 模組
 
-根目錄 `pom.xml`（`bancho-parent`，packaging `pom`）繼承 `spring-boot-starter-parent`，集中管理內部模組與 Boot 不管理的版本（Spring Shell、OTel appender），所有模組共用 Lombok 與 annotation processor 設定。
+根目錄 `pom.xml`（`cc.alexlin7.bancho:bancho-parent`，packaging `pom`）繼承 `spring-boot-starter-parent`，dependency 與 plugin 版本都由 Boot 管理，升級 Boot 只要改 parent 版本。發布的函式庫也沿用它：parent 沒有宣告 `<dependencies>`，不會增加使用者的依賴，`bancho-irc` 的 runtime 依賴仍只有 `slf4j-api`；日後若要讓發布的 pom 不帶 parent 鏈，用 `flatten-maven-plugin`（`ossrh` 模式），不要拔掉 starter-parent 自己維護 plugin 版本。集中管理內部模組與 Boot 不管理的版本（Spring Shell、OTel appender），所有模組共用 Lombok 與 annotation processor 設定。子模組不會繼承 `<name>`，每個模組都要自己寫。
 
 | 模組 | 內容 |
 |---|---|
@@ -36,6 +36,18 @@ java -jar bancho-shell/target/bancho-shell-0.0.1-SNAPSHOT.jar --spring.profiles.
 | `bancho-discord` | 尚未實作 |
 
 `spring-boot-maven-plugin` 只能宣告在可執行的模組（函式庫被 repackage 後就無法被依賴）；根 pom 設 `spring-boot.run.skip=true`，可執行模組改成 `false`，`-am` 時其他模組才不會被 `spring-boot:run`。package 名稱維持 `cc.alexlin7.bancho.<feature>`，`BanchoApplication` 的元件掃描會涵蓋其他模組的 bean；同一個 package 不要分散在多個模組。
+
+### 發布到 Maven Central
+
+只發布 `bancho-parent`、`bancho-irc`（含 test-jar）、`bancho-irc-spring`；其他模組設 `bancho.publish.skip=true`（同時略過 sources、javadoc、簽章與 `skipPublishing`）。namespace `cc.alexlin7` 以 `alexlin7.cc` 的 DNS TXT 驗證。授權 MIT（根目錄 `LICENSE`）。
+
+```bash
+./mvnw versions:set -DnewVersion=0.1.0 -DgenerateBackupPoms=false -DprocessAllModules   # Central 不收 -SNAPSHOT
+./mvnw -P release -DskipTests -Dgpg.skip -Dbancho.central.skip-upload=true deploy          # 只產生 target/central-publishing/central-bundle.zip 檢查內容
+./mvnw -P release deploy                                                                  # 簽章並上傳，再到 central.sonatype.com 按 Publish
+```
+
+`release` profile 用 `central-publishing-maven-plugin`（0.12.0 修正了 Maven 3.10.0 被拒的問題；不支援 Maven 4；它與 `maven-gpg-plugin` 不受 Boot 管理，版本寫在根 pom），憑證是 `~/.m2/settings.xml` 中 id 為 `central` 的 server（Central Portal 產生的 user token）。skip 類設定以屬性串接（`maven.javadoc.skip`、`gpg.skip` 等），不要寫死在 plugin configuration，否則命令列的 `-D` 無法覆寫。javadoc 以 `doclint=all,-missing` 執行，格式錯誤（例如 record 類別上的 `@throws`）會讓發布失敗。
 
 OpenTelemetry：預設不匯出任何資料；`otel` profile（`application-otel.properties`）把 log 與 metrics 用 HTTP 送到本機 collector 的 4318。log 透過 `logback-spring.xml` 的 `OpenTelemetryAppender` 送出，由 `observability.OpenTelemetryAppenderInitializer` 接上 SDK。`opentelemetry-logback-appender-1.0` 的版本必須對應 Boot 管理的 OTel API 版本（Boot 4.1.1 → API 1.62.0 → appender 2.28.1-alpha），不可單獨升級。metrics 匯出的預設關閉寫在前端模組的 `application.properties`（`application.properties` 不能放在函式庫模組，會和前端的同名檔互相遮蔽）；各模組測試的 `application.properties` 會遮蔽 main 的同名檔，也要關閉。
 

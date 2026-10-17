@@ -8,7 +8,13 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
     <artifactId>bancho-match</artifactId>
+    <name>bancho-match</name>
     <description>多人房與 BanchoBot 回覆解析</description>
+
+    <properties>
+        <!-- 不發布到 Maven Central -->
+        <bancho.publish.skip>true</bancho.publish.skip>
+    </properties>
 
     <dependencies>
         <dependency>

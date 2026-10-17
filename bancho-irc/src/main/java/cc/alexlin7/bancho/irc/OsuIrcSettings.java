@@ -10,7 +10,6 @@ import java.time.Duration;
  * @param username osu! 使用者名稱（空白會自動轉成底線）
  * @param password IRC 密碼（https://osu.ppy.sh/home/account/edit#legacy-api），不是帳號密碼
  * @param timing   預設值見 {@link Timing}
- * @throws IllegalArgumentException {@code username} 或 {@code password} 為空白
  */
 public record OsuIrcSettings(
         String host,
@@ -23,6 +22,9 @@ public record OsuIrcSettings(
     public static final String DEFAULT_HOST = "cho.ppy.sh";
     public static final int DEFAULT_PORT = 6667;
 
+    /**
+     * @throws IllegalArgumentException {@code username} 或 {@code password} 為空白
+     */
     public OsuIrcSettings {
         if (host == null || host.isBlank()) {
             host = DEFAULT_HOST;
