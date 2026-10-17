@@ -52,7 +52,7 @@
 
     <properties>
         <!-- 所有模組的版本只寫在這裡；發布的 pom 由 flatten-maven-plugin 換成實際版本 -->
-        <revision>0.1.1</revision>
+        <revision>0.1.2-SNAPSHOT</revision>
         <java.version>25</java.version>
         <!-- 必須對應 Boot 管理的 OTel API 版本（Boot 4.1.1 → 1.62.0）；2.29 以上需要更新的 API，不可直接升級 -->
         <opentelemetry-logback-appender.version>2.28.1-alpha</opentelemetry-logback-appender.version>
