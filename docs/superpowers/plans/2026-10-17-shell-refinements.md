@@ -38,11 +38,11 @@
 ### Task 1: `GameMode` 與 `MatchRoom.map(id, mode)`、範本的 `mode`
 
 **Files:**
-- Create: `src/main/java/idv/alexlin7/tw/bancho/match/GameMode.java`
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/match/MatchRoom.java`
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/match/preset/MatchPreset.java`
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/match/MatchConfiguration.java`
-- Test: `src/test/java/idv/alexlin7/tw/bancho/match/GameModeTest.java`（新）、`MatchRoomTest.java`、`MatchRoomPresetTest.java`、`preset/MatchPresetPropertiesTest.java`
+- Create: `src/main/java/cc/alexlin7/bancho/match/GameMode.java`
+- Modify: `src/main/java/cc/alexlin7/bancho/match/MatchRoom.java`
+- Modify: `src/main/java/cc/alexlin7/bancho/match/preset/MatchPreset.java`
+- Modify: `src/main/java/cc/alexlin7/bancho/match/MatchConfiguration.java`
+- Test: `src/test/java/cc/alexlin7/bancho/match/GameModeTest.java`（新）、`MatchRoomTest.java`、`MatchRoomPresetTest.java`、`preset/MatchPresetPropertiesTest.java`
 
 **Interfaces:**
 - Produces:
@@ -105,8 +105,8 @@ Expected: PASS。再跑 `./mvnw test` 全部通過（`MatchPreset` 的其他呼�
 ### Task 2: shell 的 `map <id> [模式]` 與模式補全
 
 **Files:**
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/shell/MatchCommands.java:134-142`
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/shell/ShellCompletions.java`
+- Modify: `src/main/java/cc/alexlin7/bancho/shell/MatchCommands.java:134-142`
+- Modify: `src/main/java/cc/alexlin7/bancho/shell/ShellCompletions.java`
 - Test: `MatchCommandsTest.java`、`ShellCommandParsingTest.java`、`ShellCompletionsTest.java`
 
 **Interfaces:**
@@ -163,9 +163,9 @@ Expected: 編譯失敗（`map` 參數數量、`mapCompletion` 不存在）。
 
 **Files:**
 - Create: `src/test/resources/banchobot/session-2026-10-17.irc`
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/match/event/MatchEvent.java`
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/match/BanchoBotParser.java`
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/match/MatchState.java`（及其他對 `MatchEvent` 做窮舉 switch 的地方，以編譯錯誤為準）
+- Modify: `src/main/java/cc/alexlin7/bancho/match/event/MatchEvent.java`
+- Modify: `src/main/java/cc/alexlin7/bancho/match/BanchoBotParser.java`
+- Modify: `src/main/java/cc/alexlin7/bancho/match/MatchState.java`（及其他對 `MatchEvent` 做窮舉 switch 的地方，以編譯錯誤為準）
 - Test: `BanchoBotParserTest.java`、`MatchStateTest.java`（若無則加在既有狀態測試）、`MatchReplayIntegrationTest.java`
 
 **Interfaces:**
@@ -249,9 +249,9 @@ CLAUDE.md：`MatchEvent` 說明不用改；「慣例」的樣本段落不用改�
 ### Task 4: `mp` 轉送指令
 
 **Files:**
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/match/MatchRoom.java`
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/shell/MatchCommands.java`
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/shell/ShellCompletions.java`
+- Modify: `src/main/java/cc/alexlin7/bancho/match/MatchRoom.java`
+- Modify: `src/main/java/cc/alexlin7/bancho/shell/MatchCommands.java`
+- Modify: `src/main/java/cc/alexlin7/bancho/shell/ShellCompletions.java`
 - Test: `MatchRoomTest.java`、`MatchCommandsTest.java`、`ShellCommandParsingTest.java`、`ShellCompletionsTest.java`
 
 **Interfaces:**
@@ -289,9 +289,9 @@ Expected: 編譯失敗（`raw`、`mp`、`mpCompletion` 不存在）。
 ### Task 5: `-` 開頭名稱的跳脫提示
 
 **Files:**
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/shell/InputGuard.java`
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/shell/MatchCommands.java`（invite、addref）
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/shell/ShellCompletions.java`（userCompletion）
+- Modify: `src/main/java/cc/alexlin7/bancho/shell/InputGuard.java`
+- Modify: `src/main/java/cc/alexlin7/bancho/shell/MatchCommands.java`（invite、addref）
+- Modify: `src/main/java/cc/alexlin7/bancho/shell/ShellCompletions.java`（userCompletion）
 - Test: `ShellCommandParsingTest.java`、`ShellCompletionsTest.java`、`MatchCommandsTest.java`
 
 **Interfaces:**
@@ -345,7 +345,7 @@ Expected: `roomAfterDoubleDashIsRejected`、`roomEqualsAfterDoubleDashIsRejected
 
 **Files:**
 - Modify: `src/main/resources/application.properties`
-- Test: `src/test/java/idv/alexlin7/tw/bancho/observability/LoggingPropertiesTest.java`（新）
+- Test: `src/test/java/cc/alexlin7/bancho/observability/LoggingPropertiesTest.java`（新）
 - Modify: `CLAUDE.md`
 
 （`.gitignore` 已有 `logs/` 與 `*.log`，不用改。）

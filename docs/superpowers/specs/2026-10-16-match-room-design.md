@@ -35,7 +35,7 @@
 ## 2. Package 結構
 
 ```
-idv.alexlin7.tw.bancho
+cc.alexlin7.bancho
 ├── BanchoApplication
 ├── irc/        IRC 核心：OsuIrcClient、IrcMessage、IrcText、IrcSender、IrcMessageListener、
 │               AuthenticationFailedException、OsuIrcProperties、OsuIrcConfiguration（只搬家）

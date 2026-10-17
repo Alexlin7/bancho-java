@@ -53,7 +53,7 @@
 ## File Structure
 
 ```
-src/main/java/idv/alexlin7/tw/bancho/
+src/main/java/cc/alexlin7/bancho/
 ├── irc/OsuIrcLifecycle.java                   Task 1（新）；OsuIrcConfiguration 改用它
 ├── match/MatchRoom.java                        Task 5：新增 apply(MatchPreset)
 ├── match/preset/MatchPreset.java               Task 5
@@ -73,7 +73,7 @@ src/main/java/idv/alexlin7/tw/bancho/
 ### Task 0: 測試的 OTel 資料使用獨立的 service name
 
 **Files:**
-- Modify：`src/test/resources/application.properties`、`src/test/java/idv/alexlin7/tw/bancho/observability/OtelProfileTest.java`
+- Modify：`src/test/resources/application.properties`、`src/test/java/cc/alexlin7/bancho/observability/OtelProfileTest.java`
 
 - [ ] **Step 1：寫失敗的測試**
 
@@ -103,9 +103,9 @@ git commit -m "test: 測試的 OTel 資料使用 bancho-test service name"
 ### Task 1: IRC 啟動改用 `SmartLifecycle`
 
 **Files:**
-- Create：`src/main/java/idv/alexlin7/tw/bancho/irc/OsuIrcLifecycle.java`
-- Modify：`src/main/java/idv/alexlin7/tw/bancho/irc/OsuIrcConfiguration.java`
-- Test：`src/test/java/idv/alexlin7/tw/bancho/irc/OsuIrcConfigurationTest.java`
+- Create：`src/main/java/cc/alexlin7/bancho/irc/OsuIrcLifecycle.java`
+- Modify：`src/main/java/cc/alexlin7/bancho/irc/OsuIrcConfiguration.java`
+- Test：`src/test/java/cc/alexlin7/bancho/irc/OsuIrcConfigurationTest.java`
 
 **Interfaces:**
 - Produces：`class OsuIrcLifecycle implements SmartLifecycle`（package-private），建構子 `OsuIrcLifecycle(OsuIrcClient client)`；`start()` 呼叫 `client.start()`，`stop()` 呼叫 `client.close()`，`isRunning()` 反映兩者。`OsuIrcConfiguration` 以 `@Bean @ConditionalOnProperty(prefix = "osu.irc", name = "auto-start", havingValue = "true", matchIfMissing = true) OsuIrcLifecycle osuIrcLifecycle(OsuIrcClient client)` 取代 `osuIrcAutoStarter`。client bean 保留 `destroyMethod = "close"`（`close()` 是 idempotent）。
@@ -144,9 +144,9 @@ git commit -m "refactor: IRC 改由 SmartLifecycle 啟動"
 **Files:**
 - Modify：`pom.xml`、`src/main/resources/application.properties`、`src/test/resources/application.properties`
 - Create：`shell/ShellOutput.java`、`shell/ShellMessagePrinter.java`、`shell/ShellConfiguration.java`
-- Delete：`src/main/java/idv/alexlin7/tw/bancho/console/`、`src/test/java/idv/alexlin7/tw/bancho/console/`
+- Delete：`src/main/java/cc/alexlin7/bancho/console/`、`src/test/java/cc/alexlin7/bancho/console/`
 - Modify：`irc/OsuIrcConfigurationTest.java`（移除 console 相關測試）
-- Test：`src/test/java/idv/alexlin7/tw/bancho/shell/ShellMessagePrinterTest.java`、`src/test/java/idv/alexlin7/tw/bancho/BanchoApplicationTests.java`
+- Test：`src/test/java/cc/alexlin7/bancho/shell/ShellMessagePrinterTest.java`、`src/test/java/cc/alexlin7/bancho/BanchoApplicationTests.java`
 
 **Interfaces:**
 - Produces：
@@ -205,7 +205,7 @@ git commit -m "feat: 以 Spring Shell 取代自製 console"
 
 **Files:**
 - Create：`shell/ShellSession.java`、`shell/MatchCommands.java`、`shell/ChatCommands.java`
-- Test：`src/test/java/idv/alexlin7/tw/bancho/shell/MatchCommandsTest.java`、`ChatCommandsTest.java`、`ShellIntegrationTest.java`
+- Test：`src/test/java/cc/alexlin7/bancho/shell/MatchCommandsTest.java`、`ChatCommandsTest.java`、`ShellIntegrationTest.java`
 
 **Interfaces:**
 - Consumes：`MatchService`（`createMatch`、`attach`、`room`、`openRooms`）、`MatchRoom`、`IrcSender`、`ShellOutput`。
@@ -287,7 +287,7 @@ git commit -m "feat: Spring Shell 房間與聊天指令"
 **Files:**
 - Create：`shell/KnownUsers.java`、`shell/ShellCompletions.java`
 - Modify：`shell/MatchCommands.java`（`@Command(completionProvider = ...)`）
-- Test：`src/test/java/idv/alexlin7/tw/bancho/shell/KnownUsersTest.java`、`ShellCompletionsTest.java`
+- Test：`src/test/java/cc/alexlin7/bancho/shell/KnownUsersTest.java`、`ShellCompletionsTest.java`
 
 **Interfaces:**
 - Produces：
@@ -347,7 +347,7 @@ git commit -m "feat: Spring Shell Tab 補全"
 **Files:**
 - Create：`match/preset/MatchPreset.java`、`match/preset/MatchPresetProperties.java`
 - Modify：`match/MatchRoom.java`、`match/MatchConfiguration.java`、`shell/MatchCommands.java`、`shell/KnownUsers.java`、`shell/ShellCompletions.java`
-- Test：`src/test/java/idv/alexlin7/tw/bancho/match/MatchRoomPresetTest.java`、`match/preset/MatchPresetPropertiesTest.java`，修改 `MatchCommandsTest`、`KnownUsersTest`
+- Test：`src/test/java/cc/alexlin7/bancho/match/MatchRoomPresetTest.java`、`match/preset/MatchPresetPropertiesTest.java`，修改 `MatchCommandsTest`、`KnownUsersTest`
 
 **Interfaces:**
 - Produces：

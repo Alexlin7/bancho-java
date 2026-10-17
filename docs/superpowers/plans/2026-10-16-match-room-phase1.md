@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- 根 package：`idv.alexlin7.tw.bancho`。依賴方向只能是 `console → match → irc`；`irc` 不得 import `match` 或 `console`，`match` 不得 import `console`。
+- 根 package：`cc.alexlin7.bancho`。依賴方向只能是 `console → match → irc`；`irc` 不得 import `match` 或 `console`，`match` 不得 import `console`。
 - 只在 feature 內使用的類別一律 package-private；對外公開：`MatchService`、`MatchRoom`、`MatchState`、`MatchEvent`（含巢狀 record）、`IrcSender`、`IrcMessageListener`、`IrcMessage`。
 - 一律用 Lombok `@Slf4j` 記 log，不得使用 `System.out` / `System.err`（`consoleOut` bean 例外，已有 `@SuppressWarnings("java:S106")`）。log 前綴：`[osu! IRC]`、`[match]`、`[console]`。註解與 log 訊息用繁體中文。
 - SonarQube：`InterruptedException` 要重設中斷旗標；資源用 try-with-resources；log 例外時把例外物件傳給 logger；測試不得使用 `Thread.sleep`。
@@ -33,7 +33,7 @@
 ## File Structure
 
 ```
-src/main/java/idv/alexlin7/tw/bancho/
+src/main/java/cc/alexlin7/bancho/
 ├── BanchoApplication.java                     （不變）
 ├── irc/                                       Task 1：以下原檔搬入，只改 package 與 import
 │   ├── AuthenticationFailedException.java
@@ -51,7 +51,7 @@ src/main/java/idv/alexlin7/tw/bancho/
 └── console/                                   Task 9：ConsoleCommandInterpreter、ConsoleConfiguration 修改
 src/main/resources/
 ├── logback-spring.xml  application-otel.properties                        Task 2
-src/test/java/idv/alexlin7/tw/bancho/
+src/test/java/cc/alexlin7/bancho/
 ├── irc/  FakeIrcServer.java（改 public）、RecordingIrcSender.java（新）、既有 irc 測試搬入   Task 1
 ├── observability/ObservabilityConfigurationTest.java                       Task 2
 ├── match/ BanchoBotParserTest、MatchStateTest、MatchRoomTest、MatchServiceTest、
@@ -67,10 +67,10 @@ src/test/resources/banchobot/session-2026-10-16.irc                         Task
 ### Task 1: 搬到 `irc` 套件、抽出測試用 sender、移除 `OsuChatHandlerService`
 
 **Files:**
-- Move（`git mv`）：`src/main/java/idv/alexlin7/tw/bancho/{AuthenticationFailedException,IrcMessage,IrcMessageListener,IrcSender,IrcText,OsuIrcClient,OsuIrcConfiguration,OsuIrcProperties}.java` → `.../bancho/irc/`
-- Move：`src/test/java/idv/alexlin7/tw/bancho/{FakeIrcServer,IrcMessageTest,IrcTextTest,OsuIrcClientTest,OsuIrcConfigurationTest}.java` → `.../bancho/irc/`
-- Delete：`src/main/java/idv/alexlin7/tw/bancho/OsuChatHandlerService.java`
-- Create：`src/test/java/idv/alexlin7/tw/bancho/irc/RecordingIrcSender.java`
+- Move（`git mv`）：`src/main/java/cc/alexlin7/bancho/{AuthenticationFailedException,IrcMessage,IrcMessageListener,IrcSender,IrcText,OsuIrcClient,OsuIrcConfiguration,OsuIrcProperties}.java` → `.../bancho/irc/`
+- Move：`src/test/java/cc/alexlin7/bancho/{FakeIrcServer,IrcMessageTest,IrcTextTest,OsuIrcClientTest,OsuIrcConfigurationTest}.java` → `.../bancho/irc/`
+- Delete：`src/main/java/cc/alexlin7/bancho/OsuChatHandlerService.java`
+- Create：`src/test/java/cc/alexlin7/bancho/irc/RecordingIrcSender.java`
 - Modify：`console/*.java`、`console/*Test.java` 的 import；`ConsoleCommandInterpreterTest`、`ConsoleInputLoopTest` 改用 `RecordingIrcSender`
 
 **Interfaces:**
@@ -80,7 +80,7 @@ src/test/resources/banchobot/session-2026-10-16.irc                         Task
 
 - [ ] **Step 1：搬移檔案並修正 package / import**
 
-用 `git mv` 搬移，把 package 改成 `idv.alexlin7.tw.bancho.irc`。`IrcText` 仍為 package-private（只有 `OsuIrcClient` 與 `IrcTextTest` 使用，兩者同 package）。
+用 `git mv` 搬移，把 package 改成 `cc.alexlin7.bancho.irc`。`IrcText` 仍為 package-private（只有 `OsuIrcClient` 與 `IrcTextTest` 使用，兩者同 package）。
 
 - [ ] **Step 2：刪除 `OsuChatHandlerService` 並修正 `OsuIrcConfigurationTest`**
 
@@ -92,7 +92,7 @@ assertThat(context.getBeansOfType(IrcMessageListener.class)).containsOnlyKeys("c
 
 - [ ] **Step 3：建立 `RecordingIrcSender`，console 測試改用它**
 
-刪除 `ConsoleCommandInterpreterTest` 內的巢狀 `RecordingSender`，兩個 console 測試改用 `idv.alexlin7.tw.bancho.irc.RecordingIrcSender`，斷言內容不變。
+刪除 `ConsoleCommandInterpreterTest` 內的巢狀 `RecordingSender`，兩個 console 測試改用 `cc.alexlin7.bancho.irc.RecordingIrcSender`，斷言內容不變。
 
 - [ ] **Step 4：確認全部測試通過**
 
@@ -101,7 +101,7 @@ Expected: `Tests run: 72, Failures: 0, Errors: 0` 且 `BUILD SUCCESS`（測試�
 
 - [ ] **Step 5：確認依賴方向**
 
-Run: `grep -rn "import idv.alexlin7.tw.bancho.console" src/main/java/idv/alexlin7/tw/bancho/irc`
+Run: `grep -rn "import cc.alexlin7.bancho.console" src/main/java/cc/alexlin7/bancho/irc`
 Expected: 沒有輸出。
 
 - [ ] **Step 6：Commit**
@@ -118,8 +118,8 @@ git commit -m "refactor: IRC 核心搬到 irc 套件，移除 OsuChatHandlerServ
 **Files:**
 - Modify：`pom.xml`
 - Create：`src/main/resources/logback-spring.xml`、`src/main/resources/application-otel.properties`
-- Create：`src/main/java/idv/alexlin7/tw/bancho/observability/OpenTelemetryAppenderInitializer.java`
-- Test：`src/test/java/idv/alexlin7/tw/bancho/observability/ObservabilityConfigurationTest.java`、`OtelProfileTest.java`
+- Create：`src/main/java/cc/alexlin7/bancho/observability/OpenTelemetryAppenderInitializer.java`
+- Test：`src/test/java/cc/alexlin7/bancho/observability/ObservabilityConfigurationTest.java`、`OtelProfileTest.java`
 - Modify：`src/test/resources/application.properties`
 
 **Interfaces:**
@@ -206,9 +206,9 @@ git commit -m "feat: OpenTelemetry log 匯出，預設關閉，otel profile 開�
 ### Task 3: `MatchEvent` 與 `BanchoBotParser`
 
 **Files:**
-- Create：`src/main/java/idv/alexlin7/tw/bancho/match/event/MatchEvent.java`
-- Create：`src/main/java/idv/alexlin7/tw/bancho/match/BanchoBotParser.java`
-- Test：`src/test/java/idv/alexlin7/tw/bancho/match/BanchoBotParserTest.java`
+- Create：`src/main/java/cc/alexlin7/bancho/match/event/MatchEvent.java`
+- Create：`src/main/java/cc/alexlin7/bancho/match/BanchoBotParser.java`
+- Test：`src/test/java/cc/alexlin7/bancho/match/BanchoBotParserTest.java`
 
 **Interfaces:**
 - Produces：
@@ -296,8 +296,8 @@ git commit -m "feat: BanchoBot 訊息解析成 MatchEvent"
 ### Task 4: `MatchState` 與事件套用
 
 **Files:**
-- Create：`src/main/java/idv/alexlin7/tw/bancho/match/MatchState.java`
-- Test：`src/test/java/idv/alexlin7/tw/bancho/match/MatchStateTest.java`
+- Create：`src/main/java/cc/alexlin7/bancho/match/MatchState.java`
+- Test：`src/test/java/cc/alexlin7/bancho/match/MatchStateTest.java`
 
 **Interfaces:**
 - Consumes：Task 3 的 `MatchEvent`。
@@ -353,8 +353,8 @@ git commit -m "feat: MatchState 依事件更新房間狀態"
 ### Task 5: `MatchRoom` 指令
 
 **Files:**
-- Create：`src/main/java/idv/alexlin7/tw/bancho/match/MatchRoom.java`
-- Test：`src/test/java/idv/alexlin7/tw/bancho/match/MatchRoomTest.java`
+- Create：`src/main/java/cc/alexlin7/bancho/match/MatchRoom.java`
+- Test：`src/test/java/cc/alexlin7/bancho/match/MatchRoomTest.java`
 
 **Interfaces:**
 - Consumes：`IrcSender`、`MatchState`、`MatchEvent`、Task 1 的 `RecordingIrcSender`（測試）。
@@ -432,8 +432,8 @@ git commit -m "feat: MatchRoom 封裝 !mp 指令"
 ### Task 6: `MatchService`
 
 **Files:**
-- Create：`src/main/java/idv/alexlin7/tw/bancho/match/MatchService.java`、`MatchProperties.java`、`MatchConfiguration.java`
-- Test：`src/test/java/idv/alexlin7/tw/bancho/match/MatchServiceTest.java`
+- Create：`src/main/java/cc/alexlin7/bancho/match/MatchService.java`、`MatchProperties.java`、`MatchConfiguration.java`
+- Test：`src/test/java/cc/alexlin7/bancho/match/MatchServiceTest.java`
 
 **Interfaces:**
 - Consumes：`IrcSender`、`MatchRoom`（package-private 建構子與 `apply`）、`MatchEvent`。
@@ -495,8 +495,8 @@ git commit -m "feat: MatchService 開房、追蹤房間"
 ### Task 7: `BanchoBotListener`
 
 **Files:**
-- Create：`src/main/java/idv/alexlin7/tw/bancho/match/BanchoBotListener.java`
-- Test：`src/test/java/idv/alexlin7/tw/bancho/match/BanchoBotListenerTest.java`
+- Create：`src/main/java/cc/alexlin7/bancho/match/BanchoBotListener.java`
+- Test：`src/test/java/cc/alexlin7/bancho/match/BanchoBotListenerTest.java`
 
 **Interfaces:**
 - Consumes：`BanchoBotParser.parse`、`ApplicationEventPublisher`。
@@ -545,7 +545,7 @@ git commit -m "feat: BanchoBotListener 發佈 MatchEvent"
 
 **Files:**
 - Create：`src/test/resources/banchobot/session-2026-10-16.irc`
-- Test：`src/test/java/idv/alexlin7/tw/bancho/match/MatchReplayIntegrationTest.java`
+- Test：`src/test/java/cc/alexlin7/bancho/match/MatchReplayIntegrationTest.java`
 
 **Interfaces:**
 - Consumes：`FakeIrcServer`、`OsuIrcConfiguration`、`MatchConfiguration`、`BanchoBotListener`、`MatchService`。
@@ -608,8 +608,8 @@ git commit -m "test: 以真實 BanchoBot 樣本回放驗證房間狀態"
 ### Task 9: console 的 `/make` 與 `/rooms`
 
 **Files:**
-- Modify：`src/main/java/idv/alexlin7/tw/bancho/console/ConsoleCommandInterpreter.java`、`ConsoleConfiguration.java`
-- Test：`src/test/java/idv/alexlin7/tw/bancho/console/ConsoleCommandInterpreterTest.java`、`ConsoleInputLoopTest.java`
+- Modify：`src/main/java/cc/alexlin7/bancho/console/ConsoleCommandInterpreter.java`、`ConsoleConfiguration.java`
+- Test：`src/test/java/cc/alexlin7/bancho/console/ConsoleCommandInterpreterTest.java`、`ConsoleInputLoopTest.java`
 
 **Interfaces:**
 - Consumes：`MatchService.createMatch`、`MatchService.openRooms`、`MatchRoom.state()`。

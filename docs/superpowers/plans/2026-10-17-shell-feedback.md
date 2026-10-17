@@ -35,8 +35,8 @@
 ### Task 1: 必填參數改成可為 null 並回用法
 
 **Files:**
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/shell/MatchCommands.java`（`attach`、`use`、`map`、`set`）
-- Test: `src/test/java/idv/alexlin7/tw/bancho/shell/MatchCommandsTest.java`、`ShellCommandParsingTest.java`
+- Modify: `src/main/java/cc/alexlin7/bancho/shell/MatchCommands.java`（`attach`、`use`、`map`、`set`）
+- Test: `src/test/java/cc/alexlin7/bancho/shell/MatchCommandsTest.java`、`ShellCommandParsingTest.java`
 
 **Interfaces:**
 - Produces: `attach(Long, CommandContext)`、`use(Long, CommandContext)`、`map(Long, String, Long, CommandContext)`、`set(Integer, Integer, Integer, Long, CommandContext)`。既有測試以 int 字面值呼叫 `map`／`attach` 的地方要改成 `L` 結尾（`int` 不能自動裝箱成 `Long`）。
@@ -94,7 +94,7 @@ Expected: BUILD SUCCESS。
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/main/java/idv/alexlin7/tw/bancho/shell/MatchCommands.java src/test/java/idv/alexlin7/tw/bancho/shell/
+git add src/main/java/cc/alexlin7/bancho/shell/MatchCommands.java src/test/java/cc/alexlin7/bancho/shell/
 git commit -m "fix: 少給必填參數時回用法，不再出現 primitive 的錯誤"
 ```
 
@@ -104,7 +104,7 @@ git commit -m "fix: 少給必填參數時回用法，不再出現 primitive 的�
 
 **Files:**
 - Create: `src/test/resources/banchobot/session-2026-10-17b.irc`
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/match/event/MatchEvent.java`、`match/BanchoBotParser.java`、`match/MatchState.java`、`shell/MatchCommands.java`（`describe`）
+- Modify: `src/main/java/cc/alexlin7/bancho/match/event/MatchEvent.java`、`match/BanchoBotParser.java`、`match/MatchState.java`、`shell/MatchCommands.java`（`describe`）
 - Test: `BanchoBotParserTest`、`MatchStateTest`、`MatchReplayIntegrationTest`、`MatchCommandsTest`
 
 **Interfaces:**
@@ -194,7 +194,7 @@ Expected: BUILD SUCCESS。
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/main/java/idv/alexlin7/tw/bancho/match/ src/main/java/idv/alexlin7/tw/bancho/shell/MatchCommands.java src/test/
+git add src/main/java/cc/alexlin7/bancho/match/ src/main/java/cc/alexlin7/bancho/shell/MatchCommands.java src/test/
 git commit -m "feat: 解析遊玩模式變更、玩家完成、比賽結束與全員準備"
 ```
 
@@ -203,7 +203,7 @@ git commit -m "feat: 解析遊玩模式變更、玩家完成、比賽結束與�
 ### Task 3: 擋下連寫的 mod
 
 **Files:**
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/match/MatchRoom.java`（`modsCommand`）
+- Modify: `src/main/java/cc/alexlin7/bancho/match/MatchRoom.java`（`modsCommand`）
 - Test: `MatchRoomTest`、`MatchRoomPresetTest`、`MatchCommandsTest`
 
 **Interfaces:**
@@ -233,7 +233,7 @@ Expected: BUILD SUCCESS。
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/main/java/idv/alexlin7/tw/bancho/match/MatchRoom.java src/test/
+git add src/main/java/cc/alexlin7/bancho/match/MatchRoom.java src/test/
 git commit -m "fix: 擋下連寫的 mod，避免 BanchoBot 清空所有 mod"
 ```
 
@@ -242,9 +242,9 @@ git commit -m "fix: 擋下連寫的 mod，避免 BanchoBot 清空所有 mod"
 ### Task 4: 密碼改成遮蔽提示輸入
 
 **Files:**
-- Create: `src/main/java/idv/alexlin7/tw/bancho/shell/SecretPrompt.java`、`shell/JLineSecretPrompt.java`
+- Create: `src/main/java/cc/alexlin7/bancho/shell/SecretPrompt.java`、`shell/JLineSecretPrompt.java`
 - Modify: `shell/ShellConfiguration.java`、`shell/MatchCommands.java`（建構子、`password`、`mp`）、`src/main/resources/application.properties`、`src/test/resources/application.properties`、`.gitignore`
-- Test: `src/test/java/idv/alexlin7/tw/bancho/shell/JLineSecretPromptTest.java`（新）、`MatchCommandsTest`、`ShellCommandParsingTest`、`observability/LoggingPropertiesTest`
+- Test: `src/test/java/cc/alexlin7/bancho/shell/JLineSecretPromptTest.java`（新）、`MatchCommandsTest`、`ShellCommandParsingTest`、`observability/LoggingPropertiesTest`
 
 **Interfaces:**
 - Produces：
@@ -383,7 +383,7 @@ git commit -m "build: 授權 JLine 的 native access，更新文件"
 使用者回報 SonarLint 對 `MatchRoom.state`、`MatchCommands.lastMake` 報 S3077（"Use a thread-safe type; adding volatile is not enough"）。兩者都是「整個換掉不可變物件／future 的參考」，`volatile` 在語意上已足夠，但 Sonar 無法判斷 `MatchState` 不可變；改用 `AtomicReference` 讓意圖明確，行為不變。
 
 **Files:**
-- Modify: `src/main/java/idv/alexlin7/tw/bancho/match/MatchRoom.java`、`src/main/java/idv/alexlin7/tw/bancho/shell/MatchCommands.java`
+- Modify: `src/main/java/cc/alexlin7/bancho/match/MatchRoom.java`、`src/main/java/cc/alexlin7/bancho/shell/MatchCommands.java`
 
 - [ ] **Step 1: 改寫**
 
@@ -397,7 +397,7 @@ git commit -m "build: 授權 JLine 的 native access，更新文件"
 Run: `./mvnw test`
 Expected: BUILD SUCCESS。
 ```bash
-git add src/main/java/idv/alexlin7/tw/bancho/match/MatchRoom.java src/main/java/idv/alexlin7/tw/bancho/shell/MatchCommands.java
+git add src/main/java/cc/alexlin7/bancho/match/MatchRoom.java src/main/java/cc/alexlin7/bancho/shell/MatchCommands.java
 git commit -m "refactor: 以 AtomicReference 取代 volatile 參考，消除 SonarQube S3077"
 ```
 
@@ -406,7 +406,7 @@ git commit -m "refactor: 以 AtomicReference 取代 volatile 參考，消除 Son
 ### Task 7: Ctrl+C 連按兩次才離開（spec 第 9 節）
 
 **Files:**
-- Create: `src/main/java/idv/alexlin7/tw/bancho/shell/CtrlCGuard.java`、`shell/InterruptAwareInputProvider.java`
+- Create: `src/main/java/cc/alexlin7/bancho/shell/CtrlCGuard.java`、`shell/InterruptAwareInputProvider.java`
 - Modify: `shell/ShellLineEditing.java`、`CLAUDE.md`
 - Test: `CtrlCGuardTest`（新）、`InterruptAwareInputProviderTest`（新）、`ShellLineEditingTest`
 
