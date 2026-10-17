@@ -88,7 +88,7 @@ bancho:
 - `-` 開頭名稱可用雙引號（`addref "-SH-" --room 42`），或在目前房間使用 `addref -- -SH-`。`--` 只能緊接指令，之後不能再加選項（`--room`、`--room=…` 都會被拒絕）；要指定房間請用雙引號。單引號不會被移除。JLine 對已輸入開引號的候選值會重複引號，因此使用者名稱補全暫不自動加引號；跳脫請手動輸入。
 - **`ShellOutput`**：有 JLine `LineReader` 時用 `printAbove`，訊息印在輸入行上方。**`ShellMessagePrinter`** 把收到的 IRC 訊息印出來。
 - **`ShellCompletions`**：`CompletionProvider` bean（`roomCompletion`、`roomOptionCompletion`、`userCompletion`、`modsCompletion`、`makeCompletion`、`mapCompletion`），名稱即 `@Command(completionProvider = ...)` 的值。Spring Shell 會自己補選項名稱，provider 只給值。**`KnownUsers`** 收集房間事件、私訊與範本名單中的使用者名稱。
-- **`ShellLineEditing`**（BeanPostProcessor）：JLine 補全改為不分大小寫；parser 只把雙引號當引號（預設單引號也算，`say I'm ready` 會卡在等待補引號）。
+- **`ShellLineEditing`**（BeanPostProcessor）：JLine 補全改為不分大小寫；parser 只把雙引號當引號（預設單引號也算，`say I'm ready` 會卡在等待補引號）。並把 `JLineInputProvider` 換成 **`InterruptAwareInputProvider`**：Spring Shell 預設按一次 Ctrl+C 就結束 shell，改成輸入到一半只清掉該行、空行按一次提示、2 秒內再按一次才離開（判斷在 `CtrlCGuard`）；Ctrl+D 仍直接離開。`mvn spring-boot:run` 時 Maven 自己也會收到 Ctrl+C 並結束子程序，實際使用請用 `java -jar`。
 - 內建 `help`、`quit`。Tab 補全要在真正的終端機（Windows Terminal、IntelliJ 的 Terminal 分頁），IntelliJ 的 Run 視窗沒有補全。
 
 ### `observability`

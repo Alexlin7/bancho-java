@@ -18,6 +18,7 @@ import org.jline.terminal.TerminalBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.springframework.shell.jline.ExtendedDefaultParser;
+import org.springframework.shell.jline.JLineInputProvider;
 import org.springframework.shell.jline.CommandCompleter;
 import org.springframework.shell.core.command.Command;
 import org.springframework.shell.core.command.CommandRegistry;
@@ -58,6 +59,20 @@ class ShellLineEditingTest {
                     .completer(new CommandCompleter(registry)).build();
             customizer.postProcessAfterInitialization(reader, "lineReader");
             assertThat(reader.readLine()).isEqualTo("addref \"\"-SH-\" ");
+        }
+    }
+
+    @Test
+    void wrapsInputProviderOnce() throws Exception {
+        try (Terminal terminal = TerminalBuilder.builder().system(false).dumb(true)
+                .streams(InputStream.nullInputStream(), OutputStream.nullOutputStream()).build()) {
+            LineReader reader = LineReaderBuilder.builder().terminal(terminal).build();
+
+            Object wrapped = customizer.postProcessAfterInitialization(new JLineInputProvider(reader), "inputProvider");
+
+            assertThat(wrapped).isInstanceOf(InterruptAwareInputProvider.class);
+            assertThat(((JLineInputProvider) wrapped).getLineReader()).isSameAs(reader);
+            assertThat(customizer.postProcessAfterInitialization(wrapped, "inputProvider")).isSameAs(wrapped);
         }
     }
 
