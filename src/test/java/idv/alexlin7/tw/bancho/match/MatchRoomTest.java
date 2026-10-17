@@ -83,6 +83,23 @@ class MatchRoomTest {
     }
 
     @Test
+    void concatenatedModsAreRejected() {
+        assertThatThrownBy(() -> room.mods("NFHD"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("mod 要用空白分開，例如 mods NF HD");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void freemodIsAccepted() {
+        room.mods("Freemod");
+        room.mods("freemod");
+        room.mods("HD", "HR");
+        assertThat(sender.calls).containsExactly(
+                "msg #mp_123 !mp mods Freemod", "msg #mp_123 !mp mods freemod", "msg #mp_123 !mp mods HD HR");
+    }
+
+    @Test
     void addRefSendsStrippedNames() {
         room.addRef(" Alice ", "Bob");
 
