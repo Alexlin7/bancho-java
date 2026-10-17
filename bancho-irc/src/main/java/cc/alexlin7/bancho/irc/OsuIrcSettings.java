@@ -57,7 +57,8 @@ public record OsuIrcSettings(
     /**
      * @param connectTimeout    TCP 連線逾時
      * @param readTimeout       多久沒收到任何資料就主動送 PING；再一次逾時仍無回應即判定斷線
-     * @param sendInterval      出站訊息間隔。一般帳號上限 10 則 / 5 秒（500ms），bot 帳號 300 則 / 60 秒（200ms）
+     * @param sendInterval      出站訊息間隔。一般帳號上限 10 則 / 5 秒，保留 20% 餘裕為 625ms（預設）；
+     *                          bot 帳號上限 300 則 / 60 秒，建議 240ms
      * @param reconnectMinDelay 重連等待的起始值，每次失敗加倍
      * @param reconnectMaxDelay 重連等待的上限
      */
@@ -72,7 +73,7 @@ public record OsuIrcSettings(
         public Timing {
             connectTimeout = orDefault(connectTimeout, Duration.ofSeconds(10));
             readTimeout = orDefault(readTimeout, Duration.ofSeconds(60));
-            sendInterval = orDefault(sendInterval, Duration.ofMillis(500));
+            sendInterval = orDefault(sendInterval, Duration.ofMillis(625));
             reconnectMinDelay = orDefault(reconnectMinDelay, Duration.ofSeconds(5));
             reconnectMaxDelay = orDefault(reconnectMaxDelay, Duration.ofMinutes(5));
         }

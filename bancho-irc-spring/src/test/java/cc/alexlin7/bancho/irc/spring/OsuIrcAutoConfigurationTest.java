@@ -125,7 +125,7 @@ class OsuIrcAutoConfigurationTest {
             OsuIrcSettings settings = context.getBean(OsuIrcProperties.class).toSettings();
             assertThat(settings.host()).isEqualTo("cho.ppy.sh");
             assertThat(settings.port()).isEqualTo(6667);
-            assertThat(settings.timing().sendInterval()).isEqualTo(Duration.ofMillis(500));
+            assertThat(settings.timing().sendInterval()).isEqualTo(Duration.ofMillis(625));
             assertThat(settings.timing().readTimeout()).isEqualTo(Duration.ofSeconds(60));
         });
     }
