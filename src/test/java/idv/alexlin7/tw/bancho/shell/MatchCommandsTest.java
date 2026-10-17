@@ -73,8 +73,8 @@ class MatchCommandsTest {
 
     @Test
     void roomCommandUsesCurrentRoom() {
-        commands.attach(42, null);
-        commands.use(42, null);
+        commands.attach("42", null);
+        commands.use("42", null);
 
         assertThat(commands.invite(List.of("Alexlin86"), null, null)).isEqualTo("已送出：!mp invite Alexlin86");
         assertThat(sender.calls).contains("msg #mp_42 !mp invite Alexlin86");
@@ -82,9 +82,9 @@ class MatchCommandsTest {
 
     @Test
     void roomOptionOverridesCurrentRoom() {
-        commands.attach(42, null);
-        commands.attach(7, null);
-        commands.use(42, null);
+        commands.attach("42", null);
+        commands.attach("7", null);
+        commands.use("42", null);
 
         commands.abort(7L, null);
 
@@ -111,20 +111,20 @@ class MatchCommandsTest {
 
     @Test
     void useRejectsUnknownRoom() {
-        assertThat(commands.use(5, null)).isEqualTo("找不到房間：5");
+        assertThat(commands.use("5", null)).isEqualTo("找不到房間：5");
         assertThat(session.currentRoom()).isEmpty();
     }
 
     @Test
     void invalidArgumentsBecomeErrorText() {
-        commands.attach(42, null);
+        commands.attach("42", null);
 
-        assertThat(commands.set(9, 0, 2, 42L, null)).startsWith("錯誤：");
+        assertThat(commands.set("9", "0", "2", 42L, null)).startsWith("錯誤：");
     }
 
     @Test
     void startAndTimer() {
-        commands.attach(42, null);
+        commands.attach("42", null);
 
         commands.start(null, 42L, null);
         commands.start(10, 42L, null);
@@ -137,12 +137,12 @@ class MatchCommandsTest {
 
     @Test
     void otherRoomCommands() {
-        commands.attach(42, null);
+        commands.attach("42", null);
         sender.calls.clear();
 
-        commands.map(1502772, null, 42L, null);
+        commands.map("1502772", null, 42L, null);
         commands.mods(List.of("HD", "HR"), 42L, null);
-        commands.set(0, 3, 2, 42L, null);
+        commands.set("0", "3", "2", 42L, null);
         commands.settings(42L, null);
         commands.password(null, 42L, null);
         commands.addref(List.of("Ref1"), 42L, null);
@@ -155,11 +155,25 @@ class MatchCommandsTest {
     }
 
     @Test
+    void missingRequiredArgumentsShowUsage() {
+        matchService.attach(42);
+        sender.calls.clear();
+        String setUsage = "錯誤：用法：set <team mode> <score mode> <人數> [--room <房號>]";
+        assertThat(commands.set(null, null, null, 42L, null)).isEqualTo(setUsage);
+        assertThat(commands.set("2", null, null, 42L, null)).isEqualTo(setUsage);
+        assertThat(commands.set("0", "3", null, 42L, null)).isEqualTo(setUsage);
+        assertThat(commands.map(null, null, 42L, null)).isEqualTo("錯誤：用法：map <beatmap id> [模式] [--room <房號>]");
+        assertThat(commands.attach(null, null)).isEqualTo("錯誤：用法：attach <房號>");
+        assertThat(commands.use(null, null)).isEqualTo("錯誤：用法：use <房號>");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void mapAcceptsOptionalMode() {
         matchService.attach(42);
         sender.calls.clear();
-        assertThat(commands.map(2453358, "mania", 42L, null)).isEqualTo("已送出：!mp map 2453358 3");
-        assertThat(commands.map(2453358, null, 42L, null)).isEqualTo("已送出：!mp map 2453358");
+        assertThat(commands.map("2453358", "mania", 42L, null)).isEqualTo("已送出：!mp map 2453358 3");
+        assertThat(commands.map("2453358", null, 42L, null)).isEqualTo("已送出：!mp map 2453358");
         assertThat(sender.calls).containsExactly("msg #mp_42 !mp map 2453358 3", "msg #mp_42 !mp map 2453358");
     }
 
@@ -167,7 +181,7 @@ class MatchCommandsTest {
     void mapRejectsUnknownMode() {
         matchService.attach(42);
         sender.calls.clear();
-        assertThat(commands.map(2453358, "4", 42L, null))
+        assertThat(commands.map("2453358", "4", 42L, null))
                 .isEqualTo("錯誤：不認得的遊玩模式：4（可用 osu、taiko、catch、mania 或 0–3）");
         assertThat(sender.calls).isEmpty();
     }

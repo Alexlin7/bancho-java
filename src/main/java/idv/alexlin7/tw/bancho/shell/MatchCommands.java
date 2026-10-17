@@ -35,6 +35,9 @@ public class MatchCommands {
     private static final String ROOM = "room";
     private static final String ROOM_OPTION = "房號（預設為目前房間）";
     private static final String SENT = "已送出：";
+    private static final String USAGE = "錯誤：用法：";
+    private static final String SET_USAGE = USAGE + "set <team mode> <score mode> <人數> [--room <房號>]";
+    private static final String MAP_USAGE = USAGE + "map <beatmap id> [模式] [--room <房號>]";
 
     private final MatchService matchService;
     private final ShellSession session;
@@ -84,10 +87,14 @@ public class MatchCommands {
 
     @Command(name = "attach", group = GROUP, completionProvider = "roomCompletion",
             description = "接手一間已存在的房間並切換過去")
-    public String attach(@Argument(index = 0, description = "房號") long matchId, CommandContext context) {
+    public String attach(@Argument(index = 0, description = "房號") String matchIdText, CommandContext context) {
         String invalid = InputGuard.check(context, 1);
         if (invalid != null) {
             return invalid;
+        }
+        Long matchId = parseLong(matchIdText);
+        if (matchId == null) {
+            return USAGE + "attach <房號>";
         }
         MatchRoom room = matchService.attach(matchId);
         session.use(matchId);
@@ -95,10 +102,14 @@ public class MatchCommands {
     }
 
     @Command(name = "use", group = GROUP, completionProvider = "roomCompletion", description = "切換目前房間")
-    public String use(@Argument(index = 0, description = "房號") long matchId, CommandContext context) {
+    public String use(@Argument(index = 0, description = "房號") String matchIdText, CommandContext context) {
         String invalid = InputGuard.check(context, 1);
         if (invalid != null) {
             return invalid;
+        }
+        Long matchId = parseLong(matchIdText);
+        if (matchId == null) {
+            return USAGE + "use <房號>";
         }
         if (matchService.room(matchId).isEmpty()) {
             return "找不到房間：" + matchId;
@@ -138,10 +149,14 @@ public class MatchCommands {
 
     @Command(name = "map", group = GROUP, completionProvider = "mapCompletion",
             description = "換圖；可指定遊玩模式（osu、taiko、catch、mania 或 0–3），std 圖可轉成其他模式")
-    public String map(@Argument(index = 0, description = "beatmap id") long beatmapId,
+    public String map(@Argument(index = 0, description = "beatmap id") String beatmapIdText,
                       @Argument(index = 1, description = "遊玩模式（預設為圖本身的模式）") String mode,
                       @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                       CommandContext context) {
+        Long beatmapId = parseLong(beatmapIdText);
+        if (beatmapId == null) {
+            return guardedUsage(context, 2, MAP_USAGE);
+        }
         return guardedOnRoom(context, 2, room, r -> {
             GameMode parsed = mode == null || mode.isEmpty() ? null : GameMode.parse(mode)
                     .orElseThrow(() -> new IllegalArgumentException("不認得的遊玩模式：" + mode
@@ -164,11 +179,17 @@ public class MatchCommands {
 
     @Command(name = "set", group = GROUP, completionProvider = "roomOptionCompletion",
             description = "設定 team mode（0–3）、score mode（0–3）、人數（1–16）")
-    public String set(@Argument(index = 0, description = "team mode") int teamMode,
-                      @Argument(index = 1, description = "score mode") int scoreMode,
-                      @Argument(index = 2, description = "人數") int size,
+    public String set(@Argument(index = 0, description = "team mode") String teamModeText,
+                      @Argument(index = 1, description = "score mode") String scoreModeText,
+                      @Argument(index = 2, description = "人數") String sizeText,
                       @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                       CommandContext context) {
+        Integer teamMode = parseInt(teamModeText);
+        Integer scoreMode = parseInt(scoreModeText);
+        Integer size = parseInt(sizeText);
+        if (teamMode == null || scoreMode == null || size == null) {
+            return guardedUsage(context, 3, SET_USAGE);
+        }
         return guardedOnRoom(context, 3, room, r -> {
             r.set(teamMode, scoreMode, size);
             return SENT + "!mp set " + teamMode + " " + scoreMode + " " + size;
@@ -253,6 +274,31 @@ public class MatchCommands {
             r.addRef(usernames.toArray(String[]::new));
             return SENT + "!mp addref " + String.join(" ", usernames);
         });
+    }
+
+    /*
+     * 數字參數收 String 自行解析：交給 Spring Shell 轉換時，少給或非數字只會得到看不懂的英文例外。
+     */
+    private static Integer parseInt(String text) {
+        try {
+            return text == null ? null : Integer.valueOf(text.strip());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static Long parseLong(String text) {
+        try {
+            return text == null ? null : Long.valueOf(text.strip());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** 必填參數缺少時：打錯的選項與多餘的參數仍優先回報，否則回用法。 */
+    private static String guardedUsage(CommandContext context, int maxArguments, String usage) {
+        String invalid = InputGuard.check(context, maxArguments, ROOM);
+        return invalid != null ? invalid : usage;
     }
 
     private String guardedOnRoom(CommandContext context, int maxArguments, Long room,

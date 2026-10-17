@@ -2,6 +2,8 @@ package idv.alexlin7.tw.bancho.shell;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -109,6 +111,19 @@ class ShellCommandParsingTest {
     @Test
     void chatWordStartingWithDashIsReportedNotDropped() throws Exception {
         assertThat(run("say score was -5 lol --room 42")).contains("不認得的選項：-5");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void missingSetArgumentsShowUsageInsteadOfPrimitiveError() throws Exception {
+        for (String command : List.of("set", "set 2", "set --room 42 2", "set 0 3 --room 42")) {
+            assertThat(run(command)).contains("錯誤：用法：set").doesNotContain("primitive");
+        }
+        assertThat(run("map --room 42")).contains("錯誤：用法：map");
+        assertThat(run("set a b c --room 42")).contains("錯誤：用法：set");
+        assertThat(run("map abc --room 42")).contains("錯誤：用法：map");
+        assertThat(run("attach abc")).contains("錯誤：用法：attach");
+        assertThat(run("use abc")).contains("錯誤：用法：use");
         assertThat(sender.calls).isEmpty();
     }
 
