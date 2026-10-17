@@ -99,6 +99,8 @@ OpenTelemetry log appender 的安裝（見上方「指令」）。
 
 `application.properties` 中的 `spring.main.keep-alive=false`：互動 shell 佔住 main thread，設成 `true` 時 `quit` 後 JVM 不會結束。日後若有不開 shell 的執行方式（例如只跑 Discord），要改回 `true`，否則所有工作都在 daemon virtual thread 上，JVM 啟動完就會結束。`spring.shell.context.close=true` 會讓 Boot 在 context 已關閉後發佈 ready 事件而 exit 1，不要用。
 
+Spring Shell 的非互動模式（`SPRING_SHELL_INTERACTIVE_ENABLED=false` 加上指令參數）**只用於診斷**（例如打包後以 `rooms` 驗證能啟動）：指令執行完 JVM 就結束，出站訊息要等登入完成才送，所以 `make`、`msg`、`attach` 等送 IRC 的指令都送不出去；房間只存在記憶體，`--room` 也找不到。這是刻意不支援，不開 shell 的執行方式日後由 Discord 等前端負責。
+
 設計文件與實作計畫在 `docs/superpowers/specs/`、`docs/superpowers/plans/`。
 
 ## 慣例
