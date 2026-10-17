@@ -44,6 +44,7 @@
         <module>bancho-irc</module>
         <module>bancho-irc-spring</module>
         <module>bancho-match</module>
+        <module>bancho-match-spring</module>
         <module>bancho-observability</module>
         <module>bancho-shell</module>
         <module>bancho-discord</module>
@@ -101,6 +102,11 @@
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>bancho-match</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>bancho-match-spring</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

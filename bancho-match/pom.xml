@@ -9,7 +9,7 @@
     </parent>
     <artifactId>bancho-match</artifactId>
     <name>bancho-match</name>
-    <description>多人房與 BanchoBot 回覆解析</description>
+    <description>多人房與 BanchoBot 回覆解析（不依賴 Spring）</description>
 
     <properties>
         <!-- 不發布到 Maven Central -->
@@ -21,10 +21,6 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>bancho-irc</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>${project.groupId}</groupId>
@@ -32,15 +28,10 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
-        <!-- 測試要把 irc 與 match 組成 context；main 只用到 IrcSender 等純 Java 介面 -->
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>bancho-irc-spring</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!-- 測試需要 OutputCaptureExtension 與 logback 輸出；test scope 不會傳給使用者 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation-test</artifactId>
+            <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

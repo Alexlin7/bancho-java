@@ -1,4 +1,4 @@
-package cc.alexlin7.bancho.match.preset;
+package cc.alexlin7.bancho.match.spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -6,16 +6,16 @@ import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import cc.alexlin7.bancho.irc.spring.OsuIrcAutoConfiguration;
-import cc.alexlin7.bancho.match.MatchConfiguration;
-import cc.alexlin7.bancho.match.MatchProperties;
+import cc.alexlin7.bancho.match.preset.MatchPreset;
 
 class MatchPresetPropertiesTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
-            .withUserConfiguration(OsuIrcAutoConfiguration.class, MatchConfiguration.class)
+            .withConfiguration(AutoConfigurations.of(OsuIrcAutoConfiguration.class, MatchAutoConfiguration.class))
             .withPropertyValues("osu.irc.auto-start=false", "osu.irc.username=someone", "osu.irc.password=secret");
 
     @Test

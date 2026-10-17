@@ -11,6 +11,7 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import cc.alexlin7.bancho.irc.IrcMessage;
+import cc.alexlin7.bancho.match.event.MatchEvent;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerJoined;
 
 @ExtendWith(OutputCaptureExtension.class)
@@ -18,8 +19,8 @@ class BanchoBotListenerTest {
 
     private static final String UNRECOGNIZED = "未辨識的 BanchoBot 訊息";
 
-    private final List<Object> published = new ArrayList<>();
-    private final BanchoBotListener listener = new BanchoBotListener(published::add);
+    private final List<MatchEvent> published = new ArrayList<>();
+    private final BanchoBotListener listener = new BanchoBotListener(List.of(published::add));
 
     private void receive(String rawLine) {
         listener.onMessage(IrcMessage.parse(rawLine).orElseThrow());
@@ -31,6 +32,22 @@ class BanchoBotListenerTest {
 
         assertThat(published).containsExactly(new PlayerJoined(1, "Alexlin86", 1));
         assertThat(output).contains("[match]", "PlayerJoined");
+    }
+
+    @Test
+    void notifiesListenersInOrderAndIsolatesFailures(CapturedOutput output) {
+        List<String> calls = new ArrayList<>();
+        BanchoBotListener ordered = new BanchoBotListener(List.of(
+                event -> calls.add("first"),
+                event -> {
+                    throw new IllegalStateException("listener exploded");
+                },
+                event -> calls.add("third")));
+
+        ordered.onMessage(IrcMessage.parse(":BanchoBot!cho@ppy.sh PRIVMSG #mp_1 :Alexlin86 joined in slot 1.").orElseThrow());
+
+        assertThat(calls).containsExactly("first", "third");
+        assertThat(output).contains("處理事件時發生例外", "listener exploded");
     }
 
     @Test

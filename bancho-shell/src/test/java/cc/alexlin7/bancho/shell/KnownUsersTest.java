@@ -9,11 +9,11 @@ import org.junit.jupiter.api.Test;
 
 import cc.alexlin7.bancho.irc.IrcMessage;
 import cc.alexlin7.bancho.match.preset.MatchPreset;
-import cc.alexlin7.bancho.match.preset.MatchPresetProperties;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerInvited;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerJoined;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerMoved;
 import cc.alexlin7.bancho.match.event.MatchEvent.SlotStatus;
+import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 
 class KnownUsersTest {
 

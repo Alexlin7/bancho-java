@@ -1,6 +1,7 @@
 package cc.alexlin7.bancho.match;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
@@ -93,5 +94,30 @@ class MatchRoomPresetTest {
     void modeWithoutBeatmapIsRejected() {
         assertThatThrownBy(() -> new MatchPreset(null, null, null, null, null, null, null, null, "mania"))
                 .isInstanceOf(IllegalArgumentException.class).hasMessage("mode 必須和 beatmap 一起設定");
+    }
+
+    // ---------------------------------------------------------------- 開房前檢查
+
+    @Test
+    void validatePresetRejectsInvalidModeWithPresetName() {
+        MatchPreset preset = new MatchPreset(null, null, null, null, null, 1502772L, null, null, "9");
+        assertThatThrownBy(() -> MatchRoom.validatePreset("bad", preset))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("範本 bad 的 mode 無效：9（可用 osu、taiko、catch、mania 或 0–3）");
+    }
+
+    @Test
+    void validatePresetRejectsConcatenatedMods() {
+        MatchPreset preset = new MatchPreset(null, null, null, null, List.of("NFHD"), null, null, null, null);
+        assertThatThrownBy(() -> MatchRoom.validatePreset("bad", preset))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageStartingWith("範本 bad 的 mods 無效：mod 要用空白分開");
+    }
+
+    @Test
+    void validatePresetAcceptsValidPreset() {
+        MatchPreset preset = new MatchPreset(0, 3, 2, null, List.of("HD", "HR", "Freemod"), 1502772L, null, null, "ctb");
+        assertThatCode(() -> MatchRoom.validatePreset("ok", preset)).doesNotThrowAnyException();
+        assertThat(sender.calls).isEmpty();
     }
 }

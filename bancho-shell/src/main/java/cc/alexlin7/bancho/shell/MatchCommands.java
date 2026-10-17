@@ -23,7 +23,7 @@ import cc.alexlin7.bancho.match.GameMode;
 import cc.alexlin7.bancho.match.MatchService;
 import cc.alexlin7.bancho.match.MatchState;
 import cc.alexlin7.bancho.match.preset.MatchPreset;
-import cc.alexlin7.bancho.match.preset.MatchPresetProperties;
+import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 
 /**
  * 房間指令。房間相關的指令預設作用在目前房間，可用 {@code --room <房號>} 指定其他房間。

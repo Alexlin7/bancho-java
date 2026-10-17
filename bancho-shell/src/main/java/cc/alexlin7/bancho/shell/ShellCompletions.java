@@ -16,7 +16,7 @@ import cc.alexlin7.bancho.match.GameMode;
 import cc.alexlin7.bancho.match.MatchRoom;
 import cc.alexlin7.bancho.match.MatchService;
 import cc.alexlin7.bancho.match.ModNames;
-import cc.alexlin7.bancho.match.preset.MatchPresetProperties;
+import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 
 /**
  * Tab 補全。Spring Shell 會自己補選項名稱（例如 --room），這裡只提供選項值與主要參數的候選。

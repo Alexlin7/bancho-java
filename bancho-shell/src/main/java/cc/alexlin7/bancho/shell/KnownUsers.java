@@ -14,7 +14,7 @@ import cc.alexlin7.bancho.match.event.MatchEvent.PlayerInvited;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerJoined;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerMoved;
 import cc.alexlin7.bancho.match.event.MatchEvent.SlotStatus;
-import cc.alexlin7.bancho.match.preset.MatchPresetProperties;
+import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 
 /**
  * 這次執行中看過的使用者名稱，供 invite / addref 的 Tab 補全使用。

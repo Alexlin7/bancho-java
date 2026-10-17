@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>cc.alexlin7.bancho</groupId>
+        <artifactId>bancho-parent</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <artifactId>bancho-match-spring</artifactId>
+    <name>bancho-match-spring</name>
+    <description>bancho-match 的 Spring Boot auto-configuration（bancho.match.* 設定、以 Spring 事件發布房間事件）</description>
+
+    <properties>
+        <!-- 不發布到 Maven Central -->
+        <bancho.publish.skip>true</bancho.publish.skip>
+    </properties>
+
+    <!-- 依賴 autoconfigure 而不是 starter，才不會替使用者決定 log 後端 -->
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bancho-match</artifactId>
+        </dependency>
+        <!-- 房間事件需要 IrcSender；大多數使用端也是由它建立 client -->
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bancho-irc-spring</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bancho-irc</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

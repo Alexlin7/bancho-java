@@ -169,8 +169,28 @@ public final class MatchRoom {
         return MP + "map " + beatmapId + (mode == null ? "" : " " + mode.id());
     }
 
-    /** 也供 {@link MatchConfiguration} 在啟動時檢查範本。 */
-    static String modsCommand(String... mods) {
+    /**
+     * 檢查範本中要到送出時才會檢查的欄位（遊玩模式、mod），讓設定錯誤在開房前就被發現。
+     *
+     * @param name   範本名稱，只用於錯誤訊息
+     * @param preset 要檢查的範本
+     * @throws IllegalArgumentException 欄位不合法時，訊息帶有範本名稱
+     */
+    public static void validatePreset(String name, MatchPreset preset) {
+        if (preset.mode() != null && GameMode.parse(preset.mode()).isEmpty()) {
+            throw new IllegalArgumentException("範本 " + name + " 的 mode 無效：" + preset.mode()
+                    + "（可用 osu、taiko、catch、mania 或 0–3）");
+        }
+        if (!preset.mods().isEmpty()) {
+            try {
+                modsCommand(preset.mods().toArray(String[]::new));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("範本 " + name + " 的 mods 無效：" + e.getMessage(), e);
+            }
+        }
+    }
+
+    private static String modsCommand(String... mods) {
         if (mods.length == 0) {
             throw new IllegalArgumentException("至少要指定一個 mod");
         }

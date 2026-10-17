@@ -30,7 +30,8 @@ java -jar bancho-shell/target/bancho-shell-*.jar --spring.profiles.active=otel  
 |---|---|
 | `bancho-irc` | `irc` 套件，純 Java，compile 依賴只有 `slf4j-api`（不可加入 Spring 或 log 後端）；另外產生 test-jar（`FakeIrcServer`、`RecordingIrcSender`），其他模組以 `<type>test-jar</type>` 依賴。不能拆成獨立模組：它依賴 irc，而 irc 自己的測試也要用它，會形成循環 |
 | `bancho-irc-spring` | `irc.spring` 套件：`osu.irc.*` 綁定與 auto-configuration；依賴 `spring-boot-autoconfigure` 而不是 starter |
-| `bancho-match` | `match` 套件與 `banchobot/` 樣本 |
+| `bancho-match` | `match` 套件與 `banchobot/` 樣本，純 Java，compile 依賴只有 `bancho-irc`（不可加入 Spring） |
+| `bancho-match-spring` | `match.spring` 套件：`bancho.match.*` 綁定、範本檢查與 auto-configuration，把房間事件轉成 Spring 事件 |
 | `bancho-observability` | `observability` 套件、`logback-spring.xml`、`application-otel.properties`；`@SpringBootTest` 由 test 的 `ObservabilityTestApplication` 啟動 |
 | `bancho-shell` | 唯一可執行的模組：`BanchoApplication`、`shell` 套件、`application.properties` |
 | `bancho-discord` | 尚未實作 |
@@ -39,7 +40,7 @@ java -jar bancho-shell/target/bancho-shell-*.jar --spring.profiles.active=otel  
 
 ### 發布到 Maven Central
 
-只發布 `bancho-parent`、`bancho-irc`（含 test-jar）、`bancho-irc-spring`；其他模組設 `bancho.publish.skip=true`（同時略過 sources、javadoc、簽章與 `skipPublishing`）。namespace `cc.alexlin7` 以 `alexlin7.cc` 的 DNS TXT 驗證。授權 MIT（根目錄 `LICENSE`）。
+只發布 `bancho-parent`、`bancho-irc`（含 test-jar）、`bancho-irc-spring`；match 的 API（`MatchEvent` 的欄位等）還會隨新樣本調整，暫不發布。其他模組設 `bancho.publish.skip=true`（同時略過 sources、javadoc、簽章與 `skipPublishing`）。namespace `cc.alexlin7` 以 `alexlin7.cc` 的 DNS TXT 驗證。授權 MIT（根目錄 `LICENSE`）。
 
 發布一律從 main 進行，Central 上的版本必須對應一個 tag（已發布的版本永久存在，不能刪除或覆蓋）：
 
@@ -76,7 +77,7 @@ OSU_IRC_USERNAME=...  OSU_IRC_PASSWORD=...
 
 ## 架構
 
-依功能分 package，依賴方向只能是 `shell → match → irc`，`irc.spring` 只由前端引入（`irc` 不認識房間，`match` 不認識前端；`match` 的 main 只依賴純 Java 的 `irc`）。只在 feature 內使用的類別設為 package-private。
+依功能分 package，依賴方向只能是 `shell → match → irc`；Spring 整合放在各自的 `*.spring` 模組（`match.spring → match`、`match.spring → irc.spring → irc`），只由前端引入（`irc` 不認識房間，`match` 不認識前端也不認識 Spring）。只在 feature 內使用的類別設為 package-private。
 
 ### `irc`：IRC 連線核心
 
@@ -94,15 +95,17 @@ OSU_IRC_USERNAME=...  OSU_IRC_PASSWORD=...
 
 - **`BanchoBotParser`**：純函式，把 BanchoBot 的 PRIVMSG 解析成 `Result`（`Parsed` / `Ignored` / `Unrecognized` / `NotFromBanchoBot`）。只信任 nick 為 `BanchoBot` 的訊息；私訊只辨識開房回覆，頻道訊息只處理 `#mp_<id>`。每條 regex 必須比對整行。
 - **`event.MatchEvent`**：sealed interface，事件都是巢狀 record。team mode、mod 名稱等維持 BanchoBot 原文字串，不轉 enum（沒有完整樣本）。
-- **`BanchoBotListener`**：`IrcMessageListener`，解析後用 `ApplicationEventPublisher` 發佈事件；看不懂的 BanchoBot 訊息記 INFO（帶 `match.id`、`banchobot.text`），是蒐集新樣本的管道。
-- **`MatchService`**：`createMatch(name)` 送 `!mp make` 並以房名對應 BanchoBot 的回覆（同名請求在等待中時拒絕，逾時預設 15 秒，`bancho.match.create-timeout`）；以 `@EventListener` 接收事件、登記並更新房間。收到 `MatchCreated` 一律登記並 join，收到其他未登記房號的事件只登記不 join，`MatchClosed` 時 part。
+- **`BanchoBotListener`**：`IrcMessageListener`，解析後依清單順序通知每個 **`event.MatchEventListener`**（例外只記 log，不影響其他 listener）；`MatchService` 必須排第一個，其他 listener 查到的才是更新後的房間。看不懂的 BanchoBot 訊息記 INFO（帶 `match.id`、`banchobot.text`），是蒐集新樣本的管道。
+- **`MatchService`**：`createMatch(name)` 送 `!mp make` 並以房名對應 BanchoBot 的回覆（同名請求在等待中時拒絕，逾時預設 15 秒，`bancho.match.create-timeout`）；實作 `MatchEventListener`，接收事件後登記並更新房間。收到 `MatchCreated` 一律登記並 join，收到其他未登記房號的事件只登記不 join，`MatchClosed` 時 part。
 - **`MatchRoom`**：封裝 `!mp` 指令（`mods` 會擋下 `NFHD` 這類連寫，BanchoBot 看不懂會清空所有 mod；可接受的長名稱與 shell 的 mod 補全共用 **`ModNames.KNOWN`**）；**`MatchState`** 是不可變 record（`gameMode` 為 BanchoBot 回覆的原文，例如 `CatchTheBeat`），存在 `AtomicReference`，事件只在 dispatcher thread 上套用，任何 thread 讀到的都是完整快照。
+
+**`match.spring.MatchAutoConfiguration`**（`bancho-match-spring`）：在有 `IrcSender` bean 時註冊 `MatchService`（使用者自訂時退出）與 `BanchoBotListener`，listener 清單是 `MatchService` → `ApplicationEventPublisher`，所以應用程式以 `@EventListener` 接收 `MatchEvent`，不必實作 `MatchEventListener`。`MatchService` 以 `ObjectProvider` 延後取得：直接注入會形成 client → `BanchoBotListener` → `MatchService` → client 的循環。`MatchProperties`、`MatchPresetProperties` 都在這個套件。
 
 Spring 事件預設同步在發布者的 thread（IRC dispatcher）上執行，所以所有 `@EventListener` 依訊息到達順序處理；耗時的 listener 要自行轉交其他 thread。
 
 ### `match/preset`：房間設定範本
 
-`MatchPreset`（`bancho.match.presets.<名稱>.*`）：`team-mode`、`score-mode`、`size`（三者必須一起設定）、`password`、`mods`、`beatmap`、`mode`（需搭配 `beatmap`）、`referees`、`invite`，都可省略。`mode` 接受 0–3 或模式名稱／別名；`mode` 與 `mods`（含連寫檢查）都在啟動時由 `MatchConfiguration` 檢查，避免開房後才失敗。`MatchRoom.apply(MatchPreset)` 依 set → password → mods → map → addref → invite 送出，未填的跳過。
+`MatchPreset`（`bancho.match.presets.<名稱>.*`）：`team-mode`、`score-mode`、`size`（三者必須一起設定）、`password`、`mods`、`beatmap`、`mode`（需搭配 `beatmap`）、`referees`、`invite`，都可省略。`mode` 接受 0–3 或模式名稱／別名；`mode` 與 `mods`（含連寫檢查）都由 `MatchRoom.validatePreset` 檢查，`MatchAutoConfiguration` 在啟動時對全部範本執行，避免開房後才失敗。`MatchRoom.apply(MatchPreset)` 依 set → password → mods → map → addref → invite 送出，未填的跳過。
 
 ```yaml
 bancho:
@@ -132,7 +135,7 @@ bancho:
 
 OpenTelemetry log appender 的安裝（見上方「指令」）。
 
-訊息流向：Bancho → connection thread（解析）→ inbound queue → dispatcher → 各 `IrcMessageListener`（`BanchoBotListener` → Spring 事件 → `MatchService`、`KnownUsers`；`ShellMessagePrinter`）→ `IrcSender` → outbound queue → sender thread → Bancho。
+訊息流向：Bancho → connection thread（解析）→ inbound queue → dispatcher → 各 `IrcMessageListener`（`BanchoBotListener` → `MatchService` → Spring 事件 → `KnownUsers`；`ShellMessagePrinter`）→ `IrcSender` → outbound queue → sender thread → Bancho。
 
 `application.properties` 中的 `spring.main.keep-alive=false`：互動 shell 佔住 main thread，設成 `true` 時 `quit` 後 JVM 不會結束。日後若有不開 shell 的執行方式（例如只跑 Discord），要改回 `true`，否則所有工作都在 daemon virtual thread 上，JVM 啟動完就會結束。`spring.shell.context.close=true` 會讓 Boot 在 context 已關閉後發佈 ready 事件而 exit 1，不要用。
 

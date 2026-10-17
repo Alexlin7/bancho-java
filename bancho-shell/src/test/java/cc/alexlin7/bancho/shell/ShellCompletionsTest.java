@@ -15,10 +15,10 @@ import org.springframework.shell.core.command.completion.CompletionProvider;
 import cc.alexlin7.bancho.irc.RecordingIrcSender;
 import cc.alexlin7.bancho.match.MatchService;
 import cc.alexlin7.bancho.match.preset.MatchPreset;
-import cc.alexlin7.bancho.match.preset.MatchPresetProperties;
 import cc.alexlin7.bancho.match.event.MatchEvent.MatchClosed;
 import cc.alexlin7.bancho.match.event.MatchEvent.MatchCreated;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerJoined;
+import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 
 class ShellCompletionsTest {
 

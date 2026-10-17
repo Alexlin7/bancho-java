@@ -10,22 +10,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import org.springframework.context.event.EventListener;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-
 import cc.alexlin7.bancho.irc.IrcSender;
 import cc.alexlin7.bancho.match.event.MatchEvent;
 import cc.alexlin7.bancho.match.event.MatchEvent.MatchClosed;
 import cc.alexlin7.bancho.match.event.MatchEvent.MatchCreated;
+import cc.alexlin7.bancho.match.event.MatchEventListener;
 
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * 開房與追蹤房間。{@link #createMatch} 由前端 thread 呼叫；{@link #onMatchEvent} 在 IRC dispatcher thread 上依序執行。
+ * 要排在 {@link BanchoBotListener} 的第一個 listener，其他 listener 收到事件時查到的才是更新後的房間。
  */
 @Slf4j
-public class MatchService {
+public class MatchService implements MatchEventListener {
 
     private final IrcSender sender;
     private final Duration createTimeout;
@@ -76,8 +74,7 @@ public class MatchService {
                 .toList();
     }
 
-    @EventListener
-    @Order(Ordered.HIGHEST_PRECEDENCE)
+    @Override
     public void onMatchEvent(MatchEvent event) {
         if (event instanceof MatchCreated created) {
             onCreated(created);

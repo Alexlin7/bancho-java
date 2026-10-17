@@ -1,4 +1,4 @@
-package cc.alexlin7.bancho.match;
+package cc.alexlin7.bancho.match.spring;
 
 import java.time.Duration;
 
