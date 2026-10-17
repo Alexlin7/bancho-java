@@ -16,6 +16,9 @@ import cc.alexlin7.bancho.irc.OsuIrcClient;
 @Component
 public class LoginCommands {
 
+    /** 用環境變數登入的人可能忘了自己有設，提示這個可能性與換帳號的方法。 */
+    private static final String ENV_HINT = "（有設定 OSU_IRC_USERNAME／OSU_IRC_PASSWORD 環境變數時，啟動就會自動登入）；"
+            + "要換帳號請修改或清除環境變數後重開程式";
     private static final String PASSWORD_PROMPT =
             "IRC 密碼（不是帳號密碼，到 https://osu.ppy.sh/home/account/edit#legacy-api 取得）：";
 
@@ -35,9 +38,13 @@ public class LoginCommands {
         if (invalid != null) {
             return invalid;
         }
+        String account = client.username().orElse("");
         IrcConnectionState state = client.state();
-        if (state == IrcConnectionState.CONNECTING || state == IrcConnectionState.REGISTERED) {
-            return "錯誤：已登入，要換帳號請重開程式";
+        if (state == IrcConnectionState.CONNECTING) {
+            return "錯誤：正在以 " + account + " 連線 Bancho" + ENV_HINT;
+        }
+        if (state == IrcConnectionState.REGISTERED) {
+            return "錯誤：已登入為 " + account + ENV_HINT;
         }
         return RoomResolver.guarded(() -> {
             Optional<String> username = textPrompt.read("osu! 帳號：");

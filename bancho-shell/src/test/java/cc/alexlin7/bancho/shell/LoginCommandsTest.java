@@ -24,6 +24,8 @@ class LoginCommandsTest {
 
     private static final Duration WAIT = Duration.ofSeconds(3);
     private static final String AUTH_FAILED = "登入失敗：帳號或 IRC 密碼錯誤，請重新 login";
+    private static final String ENV_HINT = "（有設定 OSU_IRC_USERNAME／OSU_IRC_PASSWORD 環境變數時，啟動就會自動登入）；"
+            + "要換帳號請修改或清除環境變數後重開程式";
 
     private final Deque<Optional<String>> usernames = new ArrayDeque<>();
     private final Deque<Optional<String>> passwords = new ArrayDeque<>();
@@ -76,7 +78,7 @@ class LoginCommandsTest {
                 "IRC 密碼（不是帳號密碼，到 https://osu.ppy.sh/home/account/edit#legacy-api 取得）：");
         assertThat(server.awaitLine(line -> line.startsWith("USER "), WAIT)).isNotNull();
         server.welcome();
-        await().atMost(WAIT).until(() -> printed.contains("已登入 Bancho"));
+        await().atMost(WAIT).until(() -> printed.contains("已登入 Bancho：test user"));
     }
 
     @Test
@@ -92,10 +94,20 @@ class LoginCommandsTest {
     }
 
     @Test
-    void secondLoginRejected() {
+    void loginWhileConnectingSaysSoAndMentionsEnvironmentVariables() {
         login("test user", "secret");
 
-        assertThat(commands.login(null)).isEqualTo("錯誤：已登入，要換帳號請重開程式");
+        assertThat(commands.login(null)).isEqualTo("錯誤：正在以 test user 連線 Bancho" + ENV_HINT);
+    }
+
+    @Test
+    void loginWhenAlreadyRegisteredNamesAccountAndMentionsEnvironmentVariables() throws Exception {
+        login("test user", "secret");
+        assertThat(server.awaitLine(line -> line.startsWith("USER "), WAIT)).isNotNull();
+        server.welcome();
+        await().atMost(WAIT).until(() -> client.state() == IrcConnectionState.REGISTERED);
+
+        assertThat(commands.login(null)).isEqualTo("錯誤：已登入為 test user" + ENV_HINT);
     }
 
     @Test
@@ -108,6 +120,16 @@ class LoginCommandsTest {
         });
         assertThat(login("test user", "right")).isEqualTo("登入中：test user");
         assertThat(server.awaitLine("PASS right", WAIT)).isNotNull();
+    }
+
+    @Test
+    void startupMessageNamesAccountWhenCredentialsWereConfigured() throws Exception {
+        try (OsuIrcClient configured = new OsuIrcClient(
+                new OsuIrcSettings("127.0.0.1", server.port(), "env user", "secret", null), List.of())) {
+            new ConnectionStatusPrinter(configured, printed::add).onApplicationStarted();
+        }
+
+        assertThat(printed).containsExactly("以設定的帳號 env user 自動登入（OSU_IRC_USERNAME／OSU_IRC_PASSWORD）");
     }
 
     @Test
