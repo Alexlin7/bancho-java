@@ -110,3 +110,19 @@ BanchoBot 收到 `!mp mods NFHD` 會回 `Disabled all mods`（看不懂就清空
 | `set a b c` 的錯誤訊息 | Spring Shell 只拋 `CommandExecutionException: Unable to execute command set`（cause 為 `ConversionFailedException ... for value [a]`），看不懂 → 四個指令改收 `String` 自行解析 |
 | fat jar 的 `Enable-Native-Access` | ✅ 有效：正式 jar 以 `java -jar` 非互動執行沒有 `restricted method` 警告；移除該條目的對照 jar 會出現 JLine `FfmTerminalProvider` 的警告 |
 | 其他遊玩模式、`FAILED` 的原文 | 仍待使用者實測，先保留原文字串 |
+
+## 9. Ctrl+C 連按兩次才離開（實測後追加）
+
+Spring Shell 4 的 `InteractiveShellRunner` 在讀取輸入時遇到任何例外都會跳出迴圈，所以在 `shell:>` 按一次 Ctrl+C 就會結束程式。裁判誤按會讓 bot 斷線、房間無人管理。改成參考 Claude Code 的做法：
+
+| 狀況 | 行為 |
+|---|---|
+| 輸入到一半按 Ctrl+C | 清掉這一行，不離開，也不算第一下 |
+| 空的 `shell:>` 按 Ctrl+C | 印出 `（再按一次 Ctrl+C 離開，或輸入 quit）`，不離開 |
+| 提示後 2 秒內（含）再按一次 | 正常離開（回傳 null，Spring Shell 印 `Exiting the shell`） |
+| 超過 2 秒、或中間已送出一行指令 | 重新從第一下算 |
+| `新密碼：` 提示中按 Ctrl+C | 只取消輸入（第 3 節，不變） |
+| Ctrl+D | 維持 Spring Shell 原本的直接離開 |
+
+- 以 `ShellLineEditing`（BeanPostProcessor）把 `JLineInputProvider` 換成子類別 `InterruptAwareInputProvider`，攔下 `UserInterruptException`。判斷邏輯放在純類別 `CtrlCGuard`（注入 `Clock`，可單元測試）。
+- `mvn spring-boot:run` 時 Maven 也會收到 Ctrl+C 並結束子程序，這個行為只在 `java -jar` 下完整有效；CLAUDE.md 註明。

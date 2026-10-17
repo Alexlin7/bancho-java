@@ -400,3 +400,25 @@ Expected: BUILD SUCCESS。
 git add src/main/java/idv/alexlin7/tw/bancho/match/MatchRoom.java src/main/java/idv/alexlin7/tw/bancho/shell/MatchCommands.java
 git commit -m "refactor: 以 AtomicReference 取代 volatile 參考，消除 SonarQube S3077"
 ```
+
+---
+
+### Task 7: Ctrl+C 連按兩次才離開（spec 第 9 節）
+
+**Files:**
+- Create: `src/main/java/idv/alexlin7/tw/bancho/shell/CtrlCGuard.java`、`shell/InterruptAwareInputProvider.java`
+- Modify: `shell/ShellLineEditing.java`、`CLAUDE.md`
+- Test: `CtrlCGuardTest`（新）、`InterruptAwareInputProviderTest`（新）、`ShellLineEditingTest`
+
+**Interfaces:**
+- `final class CtrlCGuard`：`CtrlCGuard(Clock clock, Duration window)`；`Action onInterrupt(String partialLine)`；`void reset()`；`enum Action { CLEAR_LINE, WARN, EXIT }`。
+- `final class InterruptAwareInputProvider extends JLineInputProvider`：`InterruptAwareInputProvider(JLineInputProvider delegate, CtrlCGuard guard)`，`readInput()` 委派給 delegate；成功讀到一行時 `guard.reset()`；`UserInterruptException` 時依 Action 回 `""`／印提示並回 `""`／回 `null`。提示 `（再按一次 Ctrl+C 離開，或輸入 quit）` 寫到 reader 的 terminal writer。
+
+- [ ] **Step 1: 失敗的測試**
+  - `CtrlCGuardTest`（可調整的假 Clock，window 2 秒）：`partialLineClearsWithoutArming`（"abc" → CLEAR_LINE，接著空白 → WARN）；`firstEmptyInterruptWarns`；`secondWithinWindowExits`（+1.9 秒、+2 秒都 EXIT）；`afterWindowWarnsAgain`（+2.1 秒 → WARN）；`resetDisarms`（WARN、reset、空白 → WARN）。
+  - `InterruptAwareInputProviderTest`（delegate 為覆寫 `readInput` 的子類別，依序丟出例外或回傳字串；reader 用輸出到 `ByteArrayOutputStream` 的 dumb terminal）：一般輸入原樣回傳；空白中斷回 `""` 且輸出含提示；2 秒內第二次回 `null`；輸入到一半的中斷回 `""` 且沒有提示。
+  - `ShellLineEditingTest.wrapsInputProvider`：處理 `JLineInputProvider` 後得到 `InterruptAwareInputProvider`，且 `getLineReader()` 是同一個 reader；已包過的不再包一次。
+- [ ] **Step 2: 跑測試確認失敗**（編譯失敗）
+- [ ] **Step 3: 實作**；`ShellLineEditing` 以 `Clock.systemUTC()`、`Duration.ofSeconds(2)` 建立 guard。
+- [ ] **Step 4: `./mvnw test` 全綠；CLAUDE.md 的 shell 段落補上行為與 `spring-boot:run` 的限制**
+- [ ] **Step 5: Commit** `feat: Ctrl+C 連按兩次才離開 shell`
