@@ -50,11 +50,13 @@ public class MatchCommands {
     private final RoomResolver rooms;
     private final MatchPresetProperties presets;
     private final SecretPrompt secretPrompt;
+    private final LoginGuard loginGuard;
     private final AtomicReference<CompletableFuture<MatchRoom>> lastMake =
             new AtomicReference<>(CompletableFuture.completedFuture(null));
 
     public MatchCommands(MatchService matchService, ShellSession session, ShellOutput out,
-                         MatchPresetProperties presets, SecretPrompt secretPrompt) {
+                         MatchPresetProperties presets, SecretPrompt secretPrompt, LoginGuard loginGuard) {
+        this.loginGuard = loginGuard;
         this.matchService = matchService;
         this.presets = presets;
         this.secretPrompt = secretPrompt;
@@ -69,6 +71,9 @@ public class MatchCommands {
                        @Option(longName = "preset", description = "設定範本名稱") String preset,
                        CommandContext context) {
         String invalid = InputGuard.check(context, InputGuard.ANY, "preset");
+        if (invalid == null) {
+            invalid = loginGuard.check();
+        }
         if (invalid != null) {
             return invalid;
         }
@@ -101,6 +106,9 @@ public class MatchCommands {
             description = "接手一間已存在的房間並切換過去")
     public String attach(@Argument(index = 0, description = "房號") String matchIdText, CommandContext context) {
         String invalid = InputGuard.check(context, 1);
+        if (invalid == null) {
+            invalid = loginGuard.check();
+        }
         if (invalid != null) {
             return invalid;
         }
@@ -287,6 +295,9 @@ public class MatchCommands {
                            @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                            CommandContext context) {
         String invalid = InputGuard.check(context, InputGuard.ANY, ROOM, "clear");
+        if (invalid == null) {
+            invalid = loginGuard.check();
+        }
         if (invalid != null) {
             return invalid;
         }
@@ -351,6 +362,9 @@ public class MatchCommands {
     private String guardedOnRoom(CommandContext context, int maxArguments, Long room,
                                  Function<MatchRoom, String> action) {
         String invalid = InputGuard.check(context, maxArguments, ROOM);
+        if (invalid == null) {
+            invalid = loginGuard.check();
+        }
         return invalid != null ? invalid : rooms.onRoom(room, action);
     }
 
@@ -360,6 +374,9 @@ public class MatchCommands {
                      @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                      CommandContext context) {
         String invalid = InputGuard.check(context, InputGuard.ANY, ROOM);
+        if (invalid == null) {
+            invalid = loginGuard.check();
+        }
         if (invalid != null) {
             return invalid;
         }

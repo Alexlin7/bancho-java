@@ -12,6 +12,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 
+import cc.alexlin7.bancho.irc.IrcConnectionState;
 import cc.alexlin7.bancho.irc.IrcSender;
 import cc.alexlin7.bancho.irc.RecordingIrcSender;
 import cc.alexlin7.bancho.match.MatchService;
@@ -45,10 +46,31 @@ class ChatCommandsTest {
     };
     private final MatchService matchService = new MatchService(sender, Duration.ofSeconds(1));
     private final ShellSession session = new ShellSession();
-    private final ChatCommands commands = new ChatCommands(sender, session, matchService, prompt);
+    private IrcConnectionState connection = IrcConnectionState.REGISTERED;
+    private final LoginGuard loginGuard = new LoginGuard(() -> connection);
+    private final ChatCommands commands = new ChatCommands(sender, session, matchService, prompt, loginGuard);
 
     private ChatCommands msgCommands() {
-        return new ChatCommands(privateSender, session, matchService, prompt);
+        return new ChatCommands(privateSender, session, matchService, prompt, loginGuard);
+    }
+
+    @Test
+    void msgRejectedBeforeLoginWithoutPrompting() {
+        connection = IrcConnectionState.IDLE;
+
+        assertThat(msgCommands().msg(List.of("BanchoBot"), null)).isEqualTo("錯誤：請先 login");
+        assertThat(prompts).isEmpty();
+        assertThat(privateMessages).isEmpty();
+    }
+
+    @Test
+    void sayRejectedWhileConnecting() {
+        matchService.attach(42);
+        session.use(42);
+        connection = IrcConnectionState.CONNECTING;
+
+        assertThat(commands.say(List.of("hi"), null, null)).isEqualTo("錯誤：正在連線 Bancho，請等登入完成");
+        assertThat(sender.calls).containsExactly("join #mp_42");
     }
 
     @Test
@@ -111,7 +133,7 @@ class ChatCommandsTest {
     void msgWithoutTerminalExplains() {
         ChatCommands nonInteractive = new ChatCommands(privateSender, session, matchService, text -> {
             throw new IllegalStateException("非互動模式無法提示輸入，請在互動 shell 中使用");
-        });
+        }, loginGuard);
 
         assertThat(nonInteractive.msg(List.of("BanchoBot"), null)).isEqualTo("錯誤：非互動模式無法提示輸入，請在互動 shell 中使用");
         assertThat(privateMessages).isEmpty();

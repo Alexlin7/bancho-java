@@ -13,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
+import cc.alexlin7.bancho.irc.IrcConnectionState;
 import cc.alexlin7.bancho.irc.RecordingIrcSender;
 import cc.alexlin7.bancho.match.MatchService;
 import cc.alexlin7.bancho.match.preset.MatchPreset;
@@ -30,13 +31,47 @@ class MatchCommandsTest {
     private final List<String> printed = Collections.synchronizedList(new ArrayList<>());
     private final List<String> prompts = new ArrayList<>();
     private Optional<String> typed = Optional.empty();
+    private IrcConnectionState connection = IrcConnectionState.REGISTERED;
     private final MatchCommands commands = new MatchCommands(matchService, session, printed::add,
             new MatchPresetProperties(Map.of("practice",
                     new MatchPreset(0, 3, 2, null, List.of("HD"), null, null, null, null))),
             prompt -> {
                 prompts.add(prompt);
                 return typed;
-            });
+            },
+            new LoginGuard(() -> connection));
+
+    @Test
+    void makeRejectedWhileConnecting() {
+        connection = IrcConnectionState.CONNECTING;
+
+        assertThat(commands.make(List.of("r"), null, null)).isEqualTo("錯誤：正在連線 Bancho，請等登入完成");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void roomCommandsRejectedBeforeLogin() {
+        matchService.attach(42);
+        session.use(42);
+        sender.calls.clear();
+        connection = IrcConnectionState.IDLE;
+
+        assertThat(commands.attach("43", null)).isEqualTo("錯誤：請先 login");
+        assertThat(commands.invite(List.of("A"), null, null)).isEqualTo("錯誤：請先 login");
+        assertThat(commands.close(null, null)).isEqualTo("錯誤：請先 login");
+        assertThat(commands.mp(List.of("host", "A"), null, null)).isEqualTo("錯誤：請先 login");
+        assertThat(commands.password(List.of(), false, null, null)).isEqualTo("錯誤：請先 login");
+        assertThat(prompts).isEmpty();
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void roomsAndDropWorkBeforeLogin() {
+        connection = IrcConnectionState.IDLE;
+
+        assertThat(commands.rooms(null)).isEqualTo("目前沒有開著的房間（名額 0/4）");
+        assertThat(commands.drop(List.of("r"), null)).isEqualTo("找不到結果未知的開房請求：r");
+    }
 
     private void awaitLastMake() throws Exception {
         commands.lastMake().handle((room, error) -> null).get(2, TimeUnit.SECONDS);
