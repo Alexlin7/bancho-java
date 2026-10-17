@@ -121,9 +121,9 @@ bancho:
 
 ### `shell`：Spring Shell 前端
 
-- **`MatchCommands`**（`make <房名…> [--preset]`、`attach`、`use`、`rooms`、`invite <名稱…>`、`map <beatmapId> [模式]`、`mods`、`set`、`start [秒]`、`timer [秒]`、`abort`、`close`、`settings`、`password [--clear]`、`addref`）與 **`ChatCommands`**（`say`、`msg`）。房間指令預設作用在 **`ShellSession`** 的目前房間，`--room <房號>` 可指定其他房間；由 `RoomResolver` 解析房間，參數錯誤一律轉成 `錯誤：...` 文字，不讓例外冒到 shell。Spring Shell 會悄悄忽略打錯的選項與多餘的參數，所以每個指令先經過 **`InputGuard`**（注入 `CommandContext` 檢查）拒絕它們；以 `-` 開頭的聊天文字要用雙引號包起來。
+- **`MatchCommands`**（`make <房名…> [--preset]`、`attach`、`use`、`rooms`、`invite <名稱…>`、`map <beatmapId> [模式]`、`mods`、`set`、`start [秒]`、`timer [秒]`、`abort`、`close`、`settings`、`password [--clear]`、`addref`）與 **`ChatCommands`**（`say`、`msg`）。`msg` 後面的字全部是對象（osu! 名稱可以有空白），訊息一律以 **`TextPrompt`** 另外提示輸入；只打 `msg` 時連對象也提示。對象與訊息寫在同一行時無從判斷界線，`msg Minato Yukina 你好` 曾經把訊息送給 `Minato`，不要改回單行。房間指令預設作用在 **`ShellSession`** 的目前房間，`--room <房號>` 可指定其他房間；由 `RoomResolver` 解析房間，參數錯誤一律轉成 `錯誤：...` 文字，不讓例外冒到 shell。Spring Shell 會悄悄忽略打錯的選項與多餘的參數，所以每個指令先經過 **`InputGuard`**（注入 `CommandContext` 檢查）拒絕它們；以 `-` 開頭的聊天文字要用雙引號包起來。
 - `mp <指令…> [--room <房號>]` 可轉送未包裝的 `!mp` 子指令；開房請用 `make`，`mp password` 一律拒絕（密碼會留在指令歷史）。`mpCompletion` 只補第一個位置參數的常用子指令與 `--room` 的房號。
-- `password` 先確定房間，再以 **`SecretPrompt`** 提示輸入（JLine 遮蔽、以 `*` 回顯，不寫入歷史）；空白輸入或 Ctrl+C 取消，`--clear` 移除密碼，密碼寫在指令裡會被拒絕。非互動模式的 `SecretPrompt` 直接丟 `IllegalStateException`。
+- `password` 先確定房間，再以 **`SecretPrompt`** 提示輸入（JLine 遮蔽、以 `*` 回顯，不寫入歷史）。兩種提示都由 **`JLinePrompt`** 實作：讀取期間關閉歷史展開（`!mp` 才不會被改寫）、引號與跳脫、Tab 補全與寫入指令歷史，讀完還原；空白輸入或 Ctrl+C 取消，`--clear` 移除密碼，密碼寫在指令裡會被拒絕。非互動模式的 `SecretPrompt`、`TextPrompt` 直接丟 `IllegalStateException`。
 - 數字位置參數（`set`、`map`、`attach`、`use`）收 `String` 自行解析：交給 Spring Shell 轉換時，少給或非數字只會得到看不懂的英文例外。少給或格式錯誤一律回 `錯誤：用法：…`。
 - `-` 開頭名稱可用雙引號（`addref "-SH-" --room 42`），或在目前房間使用 `addref -- -SH-`。`--` 只能緊接指令，之後不能再加選項（`--room`、`--room=…` 都會被拒絕）；要指定房間請用雙引號。單引號不會被移除。JLine 對已輸入開引號的候選值會重複引號，因此使用者名稱補全暫不自動加引號；跳脫請手動輸入。
 - **`ShellOutput`**：有 JLine `LineReader` 時用 `printAbove`，訊息印在輸入行上方。**`ShellMessagePrinter`** 把收到的 IRC 訊息印出來。

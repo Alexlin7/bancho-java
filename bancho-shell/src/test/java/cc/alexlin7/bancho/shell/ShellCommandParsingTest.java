@@ -3,6 +3,7 @@ package cc.alexlin7.bancho.shell;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,13 @@ class ShellCommandParsingTest {
         @Primary
         RecordingIrcSender recordingIrcSender() {
             return new RecordingIrcSender();
+        }
+
+        /** 測試沒有終端機，提示一律回答固定的訊息。 */
+        @Bean
+        @Primary
+        TextPrompt scriptedTextPrompt() {
+            return prompt -> Optional.of("hello");
         }
     }
 
@@ -225,5 +233,22 @@ class ShellCommandParsingTest {
         run("say \"score was -5 lol\" --room 42");
 
         assertThat(sender.calls).containsExactly("msg #mp_42 score was -5 lol");
+    }
+
+    @Test
+    void msgKeepsWholeTargetNameWithSpaces() throws Exception {
+        assertThat(run("msg Minato Yukina")).contains("已送出給 Minato Yukina：hello");
+        assertThat(run("msg \"Minato Yukina\"")).contains("已送出給 Minato Yukina：hello");
+
+        assertThat(sender.calls).containsExactly("msg Minato Yukina hello", "msg Minato Yukina hello");
+    }
+
+    @Test
+    void msgAcceptsDashNamesAndRejectsUnknownOptions() throws Exception {
+        run("msg \"-SH-\"");
+        run("msg -- -SH-");
+        assertThat(run("msg BanchoBot --rom 42")).startsWith("錯誤：");
+
+        assertThat(sender.calls).containsExactly("msg -SH- hello", "msg -SH- hello");
     }
 }

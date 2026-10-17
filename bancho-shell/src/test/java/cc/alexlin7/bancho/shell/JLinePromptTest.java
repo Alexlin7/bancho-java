@@ -17,7 +17,7 @@ import org.jline.terminal.impl.DumbTerminal;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-class JLineSecretPromptTest {
+class JLinePromptTest {
 
     private Terminal terminal;
 
@@ -46,47 +46,69 @@ class JLineSecretPromptTest {
 
     @Test
     void readsTypedSecret() throws IOException {
-        assertThat(new JLineSecretPrompt(readerWithInput("hunter2\r")).read("新密碼：")).contains("hunter2");
+        assertThat(JLinePrompt.secret(readerWithInput("hunter2\r")).read("新密碼：")).contains("hunter2");
     }
 
     @Test
     void blankInputCancels() throws IOException {
-        assertThat(new JLineSecretPrompt(readerWithInput("  \r")).read("新密碼：")).isEmpty();
+        assertThat(JLinePrompt.secret(readerWithInput("  \r")).read("新密碼：")).isEmpty();
     }
 
     @Test
     void endOfInputCancels() throws IOException {
-        assertThat(new JLineSecretPrompt(readerWithInput("")).read("新密碼：")).isEmpty();
+        assertThat(JLinePrompt.secret(readerWithInput("")).read("新密碼：")).isEmpty();
     }
 
     @Test
     void secretIsNotAddedToHistory() throws IOException {
         LineReader reader = readerWithInput("hunter2\r");
-        new JLineSecretPrompt(reader).read("新密碼：");
+        JLinePrompt.secret(reader).read("新密碼：");
         assertThat(reader.getHistory().size()).isZero();
     }
 
     @Test
     void historyExpansionIsNotApplied() throws IOException {
-        assertThat(new JLineSecretPrompt(shellLikeReaderWithInput("Pa$$!!word\r")).read("新密碼：")).contains("Pa$$!!word");
+        assertThat(JLinePrompt.secret(shellLikeReaderWithInput("Pa$$!!word\r")).read("新密碼：")).contains("Pa$$!!word");
     }
 
     @Test
     void backslashIsKept() throws IOException {
-        assertThat(new JLineSecretPrompt(shellLikeReaderWithInput("x\\y\r")).read("新密碼：")).contains("x\\y");
+        assertThat(JLinePrompt.secret(shellLikeReaderWithInput("x\\y\r")).read("新密碼：")).contains("x\\y");
     }
 
     @Test
     void unclosedQuoteDoesNotKeepReading() throws IOException {
-        assertThat(new JLineSecretPrompt(shellLikeReaderWithInput("a\"b\r")).read("新密碼：")).contains("a\"b");
+        assertThat(JLinePrompt.secret(shellLikeReaderWithInput("a\"b\r")).read("新密碼：")).contains("a\"b");
     }
 
     @Test
     void readerSettingsAreRestoredAfterReading() throws IOException {
         LineReader reader = shellLikeReaderWithInput("hunter2\r");
         Parser parser = reader.getParser();
-        new JLineSecretPrompt(reader).read("新密碼：");
+        JLinePrompt.secret(reader).read("新密碼：");
         assertThat(reader.getParser()).isSameAs(parser);
         assertThat(reader.isSet(LineReader.Option.DISABLE_EVENT_EXPANSION)).isFalse();
+    }
+
+    // ---------------------------------------------------------------- 不遮蔽的文字（msg 的對象與訊息）
+
+    @Test
+    void readsTextWithQuotesAndBangAsTyped() throws IOException {
+        // !mp 開頭的 BanchoBot 指令不能被歷史展開，引號也要原樣送出
+        assertThat(JLinePrompt.text(shellLikeReaderWithInput("!mp make \"A\" vs B\r")).read("訊息："))
+                .contains("!mp make \"A\" vs B");
+    }
+
+    @Test
+    void textIsNotAddedToHistory() throws IOException {
+        LineReader reader = shellLikeReaderWithInput("Minato Yukina\r");
+        JLinePrompt.text(reader).read("對象：");
+        assertThat(reader.getHistory().size()).isOne();
+        assertThat(reader.getVariable(LineReader.DISABLE_HISTORY)).isNull();
+    }
+
+    @Test
+    void blankTextCancels() throws IOException {
+        assertThat(JLinePrompt.text(readerWithInput("   \r")).read("訊息：")).isEmpty();
     }
 }

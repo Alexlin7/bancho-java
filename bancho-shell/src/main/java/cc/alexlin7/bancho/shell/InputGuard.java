@@ -38,6 +38,15 @@ final class InputGuard {
             看到「Option '-SH-' requires a value」就是這個原因。
             """;
 
+    static final String MSG_ESCAPE_HELP = """
+            msg 後面的字全部是對象（osu! 的名稱可以有空白，例如 msg Minato Yukina），訊息在提示中輸入。
+            只打 msg 時會依序提示對象與訊息；空白輸入或 Ctrl+C 取消。
+            名稱以 - 開頭（例如 -SH-）會被當成選項，需要跳脫：
+              用雙引號包起來：msg "-SH-"
+              或緊接在指令後面加 --：msg -- -SH-
+            訊息提示中的文字原樣送出，引號與 - 都不必跳脫。
+            """;
+
     private InputGuard() {
     }
 

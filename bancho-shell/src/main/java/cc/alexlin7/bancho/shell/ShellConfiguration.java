@@ -36,6 +36,18 @@ class ShellConfiguration {
                 throw new IllegalStateException("非互動模式無法輸入密碼");
             };
         }
-        return prompt -> new JLineSecretPrompt(lineReader.getObject()).read(prompt);
+        return prompt -> JLinePrompt.secret(lineReader.getObject()).read(prompt);
+    }
+
+    /** 同 {@link #secretPrompt}：非互動模式沒有可以提示的終端機。 */
+    @Bean
+    TextPrompt textPrompt(ObjectProvider<LineReader> lineReader,
+                          @Value("${spring.shell.interactive.enabled:true}") boolean interactive) {
+        if (!interactive) {
+            return prompt -> {
+                throw new IllegalStateException("非互動模式無法提示輸入，請在互動 shell 中使用");
+            };
+        }
+        return prompt -> JLinePrompt.text(lineReader.getObject()).read(prompt);
     }
 }
