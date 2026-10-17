@@ -20,7 +20,8 @@ class OsuIrcConfigurationTest {
 
     @Test
     void failsFastWhenCredentialsAreMissing() {
-        runner.run(context -> assertThat(context).hasFailed()
+        // ApplicationContextRunner 會讀系統環境變數；開發者終端機常設著 OSU_IRC_USERNAME，明確設成空白才測得到缺少憑證
+        runner.withPropertyValues("osu.irc.username=", "osu.irc.password=").run(context -> assertThat(context).hasFailed()
                 .getFailure().rootCause().hasMessageContaining("username"));
     }
 
