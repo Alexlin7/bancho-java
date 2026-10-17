@@ -38,6 +38,8 @@ try (var client = new OsuIrcClient(settings, List.of(printer))) {
 }
 ```
 
+要回話的 listener 需要拿 client 當 `IrcSender`，在 client 建好之後以 `client.addListener(...)` 加入。`addListener` 從 0.1.1 開始提供，尚未發布到 Maven Central；在那之前請 clone 本 repo 執行 `./mvnw install`，改用 `0.1.1-SNAPSHOT`。
+
 client 斷線後會自動重連；登入失敗（帳密錯誤）時停止重連。出站訊息預設每 500ms 送一則，符合一般帳號的頻率限制。
 
 ### Spring Boot

@@ -159,6 +159,34 @@ class OsuIrcClientTest {
         assertThat(second.poll(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isEqualTo("two");
     }
 
+    @Test
+    void rejectsNullListeners() {
+        OsuIrcSettings settings = new OsuIrcSettings("127.0.0.1", server.port(), "test user", "secret", null);
+        List<IrcMessageListener> withNull = new ArrayList<>();
+        withNull.add(null);
+        // null 混進清單時，dispatcher 處理第一則訊息就會因 NPE 結束，之後的 listener 全部收不到訊息
+        assertThatThrownBy(() -> new OsuIrcClient(settings, withNull)).isInstanceOf(NullPointerException.class);
+        try (OsuIrcClient other = new OsuIrcClient(settings, List.of())) {
+            assertThatThrownBy(() -> other.addListener(null)).isInstanceOf(NullPointerException.class);
+        }
+    }
+
+    @Test
+    void addedListenerIsNotifiedAfterConstructorListeners() throws Exception {
+        BlockingQueue<String> received = new LinkedBlockingQueue<>();
+        client = new OsuIrcClient(new OsuIrcSettings("127.0.0.1", server.port(), "test user", "secret",
+                timing(Duration.ofSeconds(10), Duration.ZERO)), List.of(message -> received.add("constructor")));
+        // 需要回話的 listener 要拿 client 當 IrcSender，只能在 client 建好之後才加入
+        client.addListener(message -> received.add("added:" + message.trailing()));
+        client.start();
+        assertThat(server.awaitConnection(WAIT)).isTrue();
+
+        server.send(":a!a@x PRIVMSG #mp_1 :hi");
+
+        assertThat(received.poll(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isEqualTo("constructor");
+        assertThat(received.poll(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isEqualTo("added:hi");
+    }
+
     // ---------------------------------------------------------------- 出站
 
     @Test

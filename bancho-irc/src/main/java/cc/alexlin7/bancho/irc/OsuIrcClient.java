@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
@@ -42,6 +43,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
 
     private final OsuIrcSettings settings;
     private final OsuIrcSettings.Timing timing;
+    /** dispatcher 迭代時取快照，其他 thread 可以同時 {@link #addListener}。 */
     private final List<IrcMessageListener> listeners;
 
     private final BlockingQueue<IrcMessage> inbound = new LinkedBlockingQueue<>();
@@ -62,7 +64,9 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     public OsuIrcClient(OsuIrcSettings settings, List<IrcMessageListener> listeners) {
         this.settings = settings;
         this.timing = settings.timing();
-        this.listeners = List.copyOf(listeners);
+        // CopyOnWriteArrayList 允許 null，要自己檢查：null listener 會讓 dispatcher 在第一則訊息就結束
+        listeners.forEach(listener -> Objects.requireNonNull(listener, "listener"));
+        this.listeners = new CopyOnWriteArrayList<>(listeners);
         this.reconnectDelay = timing.reconnectMinDelay();
     }
 
@@ -94,6 +98,14 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
 
     private static int toMillis(Duration duration) {
         return Math.toIntExact(duration.toMillis());
+    }
+
+    /**
+     * 加入 listener，排在建構子傳入的 listener 之後，從下一則訊息開始通知。
+     * 需要拿這個 client 當 {@link IrcSender} 回話的 listener，只能在 client 建好之後用這個方法加入。
+     */
+    public void addListener(IrcMessageListener listener) {
+        listeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
     public void start() {
