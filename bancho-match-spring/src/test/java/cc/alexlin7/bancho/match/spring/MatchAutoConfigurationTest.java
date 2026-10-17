@@ -1,9 +1,12 @@
 package cc.alexlin7.bancho.match.spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.junit.jupiter.api.Test;
@@ -18,7 +21,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.event.EventListener;
 
+import cc.alexlin7.bancho.irc.FakeIrcServer;
 import cc.alexlin7.bancho.irc.IrcMessage;
+import cc.alexlin7.bancho.irc.IrcTrafficListener;
 import cc.alexlin7.bancho.irc.OsuIrcClient;
 import cc.alexlin7.bancho.irc.RecordingIrcSender;
 import cc.alexlin7.bancho.irc.spring.OsuIrcAutoConfiguration;
@@ -131,5 +136,29 @@ class MatchAutoConfigurationTest {
             @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = {
                     RoomStateRecorder.class, CustomMatchServiceConfiguration.class})})
     static class ScanningApplication {
+    }
+
+    @Test
+    void autoConfigurationInstallsPasswordRedactor() throws Exception {
+        try (FakeIrcServer server = new FakeIrcServer()) {
+            runner.withPropertyValues("osu.irc.auto-start=true", "osu.irc.host=127.0.0.1",
+                    "osu.irc.port=" + server.port(), "osu.irc.timing.send-interval=0ms").run(context -> {
+                List<String> sent = new CopyOnWriteArrayList<>();
+                OsuIrcClient client = context.getBean(OsuIrcClient.class);
+                client.addTrafficListener(new IrcTrafficListener() {
+                    @Override
+                    public void sent(String line) {
+                        sent.add(line);
+                    }
+                });
+                assertThat(server.awaitLine(line -> line.startsWith("USER "), Duration.ofSeconds(3))).isNotNull();
+                server.welcome();
+
+                client.sendMessage("#mp_1", "!mp password hunter2");
+
+                assertThat(server.awaitLine("PRIVMSG #mp_1 :!mp password hunter2", Duration.ofSeconds(3))).isNotNull();
+                await().atMost(Duration.ofSeconds(3)).until(() -> sent.contains("PRIVMSG #mp_1 :!mp password ***"));
+            });
+        }
     }
 }

@@ -12,8 +12,10 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 
 import cc.alexlin7.bancho.irc.IrcSender;
+import cc.alexlin7.bancho.irc.OsuIrcClient;
 import cc.alexlin7.bancho.irc.spring.OsuIrcAutoConfiguration;
 import cc.alexlin7.bancho.match.BanchoBotListener;
+import cc.alexlin7.bancho.match.BanchoRedaction;
 import cc.alexlin7.bancho.match.MatchRoom;
 import cc.alexlin7.bancho.match.MatchService;
 import cc.alexlin7.bancho.match.event.MatchEvent;
@@ -31,6 +33,15 @@ public class MatchAutoConfiguration {
     @Bean
     InitializingBean matchPresetValidation(MatchPresetProperties presets) {
         return () -> presets.presets().forEach(MatchRoom::validatePreset);
+    }
+
+    /**
+     * 遮蔽 log 與原始行觀察者中的 {@code !mp password}（不論從哪個指令送出）。在 bean 初始化時設定，
+     * 早於 lifecycle 連線；IrcSender 不是 OsuIrcClient 時（例如自訂 sender）不處理。
+     */
+    @Bean
+    InitializingBean matchOutboundRedaction(ObjectProvider<OsuIrcClient> client) {
+        return () -> client.ifAvailable(c -> c.setOutboundRedactor(BanchoRedaction::redactOutbound));
     }
 
     /** MatchService 不是 IrcMessageListener，直接注入 IrcSender 不會形成循環依賴。 */
