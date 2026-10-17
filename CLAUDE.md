@@ -20,6 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 java -jar bancho-shell/target/bancho-shell-*.jar                    # 啟動（需設定 osu.irc.* 憑證；終端機輸入要在真正的終端機裡）
 ./mvnw -pl bancho-shell -am compile spring-boot:run                 # 開發時啟動（帶 --enable-native-access=ALL-UNNAMED，工作目錄為專案根目錄）
 java -jar bancho-shell/target/bancho-shell-*.jar --spring.profiles.active=otel   # 同時把 log、metrics 送到 localhost:4318
+pwsh bancho-shell/src/dist/package-windows.ps1 -Version X.Y.Z -Jar bancho-shell/target/bancho-shell-<版本>.jar -OutDir dist   # jpackage 打成內含 runtime 的 Windows zip（附使用說明.txt；log 與指令歷史寫在解壓縮資料夾內）
 ```
 
 ### Maven 模組
