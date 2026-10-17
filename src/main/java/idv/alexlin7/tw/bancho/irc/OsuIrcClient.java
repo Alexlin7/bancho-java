@@ -186,7 +186,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         try {
             Thread.sleep(delay);
             return true;
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
             return false;
         }
@@ -281,7 +281,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
             while (!closed) {
                 dispatch(inbound.take());
             }
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
         }
     }
@@ -308,7 +308,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
                     outbound.addFirst(line);
                 }
             }
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
         }
     }

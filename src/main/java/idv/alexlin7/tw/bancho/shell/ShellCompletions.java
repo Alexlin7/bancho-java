@@ -2,6 +2,7 @@ package idv.alexlin7.tw.bancho.shell;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.Function;
 
 import org.springframework.context.annotation.Bean;
@@ -11,8 +12,8 @@ import org.springframework.shell.core.command.completion.CompletionContext;
 import org.springframework.shell.core.command.completion.CompletionProposal;
 import org.springframework.shell.core.command.completion.CompletionProvider;
 
-import idv.alexlin7.tw.bancho.match.MatchRoom;
 import idv.alexlin7.tw.bancho.match.GameMode;
+import idv.alexlin7.tw.bancho.match.MatchRoom;
 import idv.alexlin7.tw.bancho.match.MatchService;
 import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
 
@@ -23,17 +24,26 @@ import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
 @Configuration
 class ShellCompletions {
 
-    /** osu! wiki「Game modifier」的 osu!stable 縮寫；Freemod 是 !mp mods 的特殊值。 */
+    /**
+     * osu! wiki「Game modifier」的 osu!stable 縮寫；Freemod 是 !mp mods 的特殊值。
+     */
     static final List<String> MODS = List.of(
             "EZ", "NF", "HT", "HR", "SD", "PF", "DT", "NC", "HD", "FL", "RL", "AP", "SO", "SV2", "Freemod");
 
     static final List<String> MP_SUBCOMMANDS = List.of(
-            "aborttimer", "clearhost", "host", "kick", "listrefs", "lock", "move", "removeref", "size", "team", "unlock");
+            "aborttimer", "clearhost", "host", "kick", "listrefs", "lock", "move", "removeref", "size", "team",
+            "unlock");
+
+    private static final Set<String> OPTIONS_WITH_VALUE = Set.of(
+            "--room"
+    );
 
     private static final String ROOM_OPTION = "room";
     private static final String PRESET_OPTION = "preset";
 
-    /** make：只補 --preset 的值（範本名稱）。 */
+    /**
+     * make：只補 --preset 的值（範本名稱）。
+     */
     @Bean
     CompletionProvider makeCompletion(MatchPresetProperties presets) {
         return context -> {
@@ -45,19 +55,25 @@ class ShellCompletions {
         };
     }
 
-    /** use、attach：主要參數就是房號。 */
+    /**
+     * use、attach：主要參數就是房號。
+     */
     @Bean
     CompletionProvider roomCompletion(MatchService matchService) {
         return context -> filter(rooms(matchService), context);
     }
 
-    /** 其他房間指令：只補 --room 的值。 */
+    /**
+     * 其他房間指令：只補 --room 的值。
+     */
     @Bean
     CompletionProvider roomOptionCompletion(MatchService matchService) {
         return withRoomOption(matchService, context -> List.of());
     }
 
-    /** invite、addref：使用者名稱。 */
+    /**
+     * invite、addref：使用者名稱。
+     */
     @Bean
     CompletionProvider userCompletion(KnownUsers knownUsers, MatchService matchService) {
         return withRoomOption(matchService,
@@ -74,9 +90,9 @@ class ShellCompletions {
     CompletionProvider mapCompletion(MatchService matchService) {
         return withRoomOption(matchService, context -> positionalIndex(context) == 1
                 ? filter(List.of(GameMode.values()).stream()
-                        .map(mode -> new CompletionProposal(mode.name().toLowerCase(Locale.ROOT))
-                                .description(Integer.toString(mode.id())))
-                        .toList(), context)
+                .map(mode -> new CompletionProposal(mode.name().toLowerCase(Locale.ROOT))
+                        .description(Integer.toString(mode.id())))
+                .toList(), context)
                 : List.of());
     }
 
@@ -87,14 +103,23 @@ class ShellCompletions {
                 : List.of());
     }
 
-    /** 選項及其值不佔位置參數；words[0] 是指令名稱。 */
+    /**
+     * 選項及其值不佔位置參數；words[0] 是指令名稱。
+     */
     private static int positionalIndex(CompletionContext context) {
         int position = 0;
         List<String> words = context.getWords();
+        boolean skipNext = false;
+
         for (int i = 1; i < context.getWordIndex(); i++) {
+            if (skipNext) {
+                skipNext = false;
+                continue;
+            }
+
             String word = words.get(i);
-            if ("--room".equals(word)) {
-                i++;
+            if (OPTIONS_WITH_VALUE.contains(word)) {
+                skipNext = true;
             } else if (!word.startsWith("-")) {
                 position++;
             }
@@ -124,7 +149,9 @@ class ShellCompletions {
         return new CompletionProposal(String.valueOf(room.matchId())).description(name == null ? "" : name);
     }
 
-    /** 依游標所在的字做前綴比對，不分大小寫。 */
+    /**
+     * 依游標所在的字做前綴比對，不分大小寫。
+     */
     static List<CompletionProposal> filter(List<CompletionProposal> proposals, CompletionContext context) {
         String word = context.currentWord();
         if (word == null || word.isEmpty()) {

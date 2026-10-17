@@ -68,11 +68,11 @@ class MatchRoomTest {
                 () -> target.set(0, 0, 0),
                 () -> target.set(0, 0, 17),
                 () -> target.mods("HD HR"),
-                () -> target.mods(),
+                target::mods,
                 () -> target.raw(" "),
                 () -> target.raw(null),
                 () -> target.invite(" "),
-                () -> target.addRef(),
+                target::addRef,
                 () -> target.start(Duration.ofSeconds(-1)));
     }
 

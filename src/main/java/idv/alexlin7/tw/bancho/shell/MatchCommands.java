@@ -47,7 +47,7 @@ public class MatchCommands {
     private final RoomResolver rooms;
     private final MatchPresetProperties presets;
     private final SecretPrompt secretPrompt;
-    private final AtomicReference<CompletableFuture<?>> lastMake =
+    private final AtomicReference<CompletableFuture<MatchRoom>> lastMake =
             new AtomicReference<>(CompletableFuture.completedFuture(null));
 
     public MatchCommands(MatchService matchService, ShellSession session, ShellOutput out,
@@ -304,7 +304,7 @@ public class MatchCommands {
     private static Integer parseInt(String text) {
         try {
             return text == null ? null : Integer.valueOf(text.strip());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }
@@ -312,7 +312,7 @@ public class MatchCommands {
     private static Long parseLong(String text) {
         try {
             return text == null ? null : Long.valueOf(text.strip());
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }
@@ -366,7 +366,7 @@ public class MatchCommands {
     }
 
     /** 最近一次 make 的結果處理，供測試等待。 */
-    CompletableFuture<?> lastMake() {
+    CompletableFuture<MatchRoom> lastMake() {
         return lastMake.get();
     }
 

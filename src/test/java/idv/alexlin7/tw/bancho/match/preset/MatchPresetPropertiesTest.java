@@ -27,8 +27,8 @@ class MatchPresetPropertiesTest {
                 "bancho.match.presets.practice.size=2",
                 "bancho.match.presets.practice.mods[0]=HD",
                 "bancho.match.presets.practice.invite[0]=Alexlin86").run(context -> {
-                    assertThat(context.getBean(MatchPresetProperties.class).presets().get("practice"))
-                            .isEqualTo(new MatchPreset(0, 3, 2, null, List.of("HD"), null, List.of(), List.of("Alexlin86"), null));
+                    assertThat(context.getBean(MatchPresetProperties.class).presets()).containsEntry("practice",
+                            new MatchPreset(0, 3, 2, null, List.of("HD"), null, List.of(), List.of("Alexlin86"), null));
                     assertThat(context.getBean(MatchProperties.class).createTimeout()).isEqualTo(Duration.ofSeconds(5));
                 });
     }

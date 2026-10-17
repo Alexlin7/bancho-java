@@ -202,7 +202,7 @@ class OsuIrcClientTest {
 
         String line = server.awaitLine(l -> l.startsWith("PRIVMSG"), WAIT);
         assertThat(line).isNotNull().startsWith("PRIVMSG #mp_1 :あ").doesNotContain("�");
-        assertThat(line.getBytes(StandardCharsets.UTF_8).length).isLessThanOrEqualTo(IrcText.MAX_LINE_BYTES);
+        assertThat(line.getBytes(StandardCharsets.UTF_8)).hasSizeLessThanOrEqualTo(IrcText.MAX_LINE_BYTES);
     }
 
     @Test

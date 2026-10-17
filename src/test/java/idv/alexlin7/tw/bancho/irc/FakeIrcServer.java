@@ -138,7 +138,7 @@ public final class FakeIrcServer implements AutoCloseable {
                 onConnect.accept(this);
                 connectionTimes.add(System.nanoTime());
             }
-        } catch (IOException e) {
+        } catch (IOException _) {
             // server 已關閉
         }
     }
@@ -152,7 +152,7 @@ public final class FakeIrcServer implements AutoCloseable {
                     send(":cho.ppy.sh PONG cho.ppy.sh " + line.substring(5));
                 }
             }
-        } catch (IOException e) {
+        } catch (IOException _) {
             // 連線已關閉
         }
     }
