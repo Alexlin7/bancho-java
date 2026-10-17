@@ -1,6 +1,7 @@
 package cc.alexlin7.bancho.irc.spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,8 +20,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.core.env.StandardEnvironment;
 
 import cc.alexlin7.bancho.irc.FakeIrcServer;
+import cc.alexlin7.bancho.irc.IrcConnectionState;
 import cc.alexlin7.bancho.irc.OsuIrcClient;
 import cc.alexlin7.bancho.irc.OsuIrcSettings;
 
@@ -173,5 +176,53 @@ class OsuIrcAutoConfigurationTest {
                     "osu.irc.username=someone", "osu.irc.password=secret", "osu.irc.auto-start=false")
                     .run(context -> assertThat(server.awaitConnection(Duration.ofSeconds(1))).isFalse());
         }
+    }
+
+    // ---------------------------------------------------------------- 延後登入
+
+    @Test
+    void deferredLoginStartsWithoutCredentials() throws Exception {
+        try (FakeIrcServer server = new FakeIrcServer()) {
+            runner.withPropertyValues("osu.irc.username=", "osu.irc.password=", "osu.irc.deferred-login=true",
+                    "osu.irc.auto-start=true", "osu.irc.host=127.0.0.1", "osu.irc.port=" + server.port())
+                    .run(context -> {
+                        assertThat(context).hasNotFailed();
+                        assertThat(context.getBean(OsuIrcClient.class).state()).isEqualTo(IrcConnectionState.IDLE);
+                        assertThat(server.awaitConnection(Duration.ofMillis(300))).isFalse();
+                    });
+        }
+    }
+
+    @Test
+    void deferredLoginStillUsesCredentialsWhenGiven() throws Exception {
+        try (FakeIrcServer server = new FakeIrcServer()) {
+            runner.withPropertyValues("osu.irc.username=someone", "osu.irc.password=secret",
+                    "osu.irc.deferred-login=true", "osu.irc.auto-start=true", "osu.irc.host=127.0.0.1",
+                    "osu.irc.port=" + server.port())
+                    .run(context -> assertThat(server.awaitLine("PASS secret", WAIT)).isNotNull());
+        }
+    }
+
+    @Test
+    void failsWhenCredentialsAreOmittedEntirely() {
+        // 移除系統環境變數，確保 osu.irc.username / password 完全沒有設定（不是空字串）
+        runner.withInitializer(context -> context.getEnvironment().getPropertySources()
+                        .remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME))
+                .run(context -> assertThat(context).hasFailed()
+                        .getFailure().rootCause().hasMessage("username 不得空白"));
+    }
+
+    @Test
+    void omittedCredentialsWithoutDeferredLoginAreRejected() {
+        assertThatIllegalStateException().isThrownBy(() -> new OsuIrcProperties(null, 0, null, null, null).toSettings())
+                .withMessage("osu.irc.username 不得空白");
+    }
+
+    @Test
+    void fiveArgumentConstructorStillWorks() {
+        OsuIrcProperties properties = new OsuIrcProperties(null, 0, "u", "p", null);
+
+        assertThat(properties.deferredLogin()).isFalse();
+        assertThat(properties.toSettings().hasCredentials()).isTrue();
     }
 }
