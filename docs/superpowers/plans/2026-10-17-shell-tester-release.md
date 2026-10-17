@@ -422,7 +422,7 @@ jpackage 參數：`--type app-image --name bancho-shell --input <只含該 jar �
 
 workflow 規格：
 - `on: push: tags: ['shell-v*']`；`permissions: contents: write`；`runs-on: windows-latest`；`defaults.run.shell: pwsh`。
-- 步驟：`actions/checkout@v4` → `actions/setup-java@v4`（`distribution: temurin`、`java-version: '25'`、`cache: maven`）→ 由 `$env:GITHUB_REF_NAME` 去掉 `shell-v` 得到版本，不符合 `^\d+\.\d+\.\d+$` 就失敗 → `./mvnw.cmd -B package`（含測試）→ 找出 `bancho-shell/target/bancho-shell-*.jar`（排除 `*.original`、`-sources`、`-javadoc`），複製為 `bancho-shell-<版本>.jar` → 執行 `package-windows.ps1` → `gh release create $env:GITHUB_REF_NAME --prerelease --title "bancho-shell <版本>" --notes "測試版，使用方式見 zip 內的使用說明.txt" <jar> <zip>`（`GH_TOKEN: ${{ github.token }}`）。
+- 步驟：`actions/checkout@v5` → `actions/setup-java@v5`（`distribution: temurin`、`java-version: '25'`、`cache: maven`）→ 由 `$env:GITHUB_REF_NAME` 去掉 `shell-v` 得到版本，不符合 `^\d+\.\d+\.\d+$` 就失敗 → `./mvnw.cmd -B package`（含測試）→ 找出 `bancho-shell/target/bancho-shell-*.jar`（排除 `*.original`、`-sources`、`-javadoc`），複製為 `bancho-shell-<版本>.jar` → 執行 `package-windows.ps1` → `gh release create $env:GITHUB_REF_NAME --prerelease --title "bancho-shell <版本>" --notes "測試版，使用方式見 zip 內的使用說明.txt" <jar> <zip>`（`GH_TOKEN: ${{ github.token }}`）。
 - 不改 pom、不 commit。
 
 CLAUDE.md 小節：shell 測試版以 `shell-vX.Y.Z` tag 發布（`git tag -a shell-vX.Y.Z -m "bancho-shell X.Y.Z" && git push origin shell-vX.Y.Z`），版本取自 tag、與 `<revision>` 及 Central 無關；`v*` tag 仍專用於 Central。
