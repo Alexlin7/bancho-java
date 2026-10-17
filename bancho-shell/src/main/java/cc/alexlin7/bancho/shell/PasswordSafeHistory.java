@@ -9,6 +9,7 @@ import org.jline.reader.impl.history.DefaultHistory;
  * 不把帶有房間密碼的指令寫進指令歷史（{@code bancho-history} 是純文字檔）。JLine 在指令執行前就把整行加入歷史，
  * 指令本身拒絕（例如 {@code mp password}、{@code password <密碼>}）也來不及，所以在這裡擋。
  * JLine 的 {@code history-ignore} 只支援區分大小寫的萬用字元，Bancho 指令不分大小寫，因此改用 regex。
+ * 比對前先去掉雙引號與反斜線：shell 的 parser 會移除它們，{@code say "!mp" "password" x} 送出的仍是 {@code !mp password x}。
  */
 class PasswordSafeHistory extends DefaultHistory {
 
@@ -18,7 +19,8 @@ class PasswordSafeHistory extends DefaultHistory {
 
     @Override
     public void add(Instant time, String line) {
-        if (SECRET.matcher(line).find()) {
+        String parsedLike = line.replace("\"", "").replace("\\", "");
+        if (SECRET.matcher(parsedLike).find()) {
             return;
         }
         super.add(time, line);

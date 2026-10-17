@@ -51,6 +51,17 @@ class PasswordSafeHistoryTest {
     }
 
     @Test
+    void skipsQuotedOrEscapedFormsThatParseToAPasswordCommand() throws IOException {
+        // parser 會移除雙引號與反斜線跳脫，送出的仍是 !mp password hunter2
+        assertThat(recorded(
+                "say \"!mp\" \"password\" hunter2",
+                "say !mp pass\"word\" hunter2",
+                "say !mp pass\\word hunter2",
+                "mp \"password\" hunter2",
+                "\"password\" hunter2")).isEmpty();
+    }
+
+    @Test
     void keepsOrdinaryCommands() throws IOException {
         assertThat(recorded("make 練習房", "say gl hf", "mp host Alexlin86", "addref Alexlin86"))
                 .containsExactly("make 練習房", "say gl hf", "mp host Alexlin86", "addref Alexlin86");

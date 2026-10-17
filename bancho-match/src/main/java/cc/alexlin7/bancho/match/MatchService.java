@@ -149,14 +149,20 @@ public class MatchService implements MatchEventListener {
     private void onCreated(MatchCreated created) {
         MatchRoom room;
         Request request;
+        boolean late;
         synchronized (lock) {
             // 房間登記與請求移除在同一個鎖內，名額不會重複計算
             room = rooms.computeIfAbsent(created.matchId(), id -> new MatchRoom(id, created.name(), sender));
             request = requests.remove(created.name());
+            late = request != null && request.status == Status.UNKNOWN;
         }
         room.apply(created);
         sender.join(room.channel());
         if (request != null) {
+            if (late) {
+                // 計時器可能剛把狀態改成結果未知、還沒完成 unknown；先完成它，前端看到成功時才會一致地當成晚到的回覆
+                request.creation.unknown().complete(null);
+            }
             request.creation.room().complete(room);
         } else {
             log.atInfo().addKeyValue("match.id", created.matchId())

@@ -628,4 +628,22 @@ class OsuIrcClientTest {
         assertThat(client.state()).isEqualTo(IrcConnectionState.REGISTERED);
     }
 
+    @Test
+    void stateLeavesRegisteredAsSoonAsConnectionDrops() throws Exception {
+        client = new OsuIrcClient(new OsuIrcSettings("127.0.0.1", server.port(), "test user", "secret",
+                new OsuIrcSettings.Timing(Duration.ofSeconds(2), Duration.ofSeconds(10), Duration.ZERO,
+                        Duration.ofSeconds(30), Duration.ofSeconds(30))), List.of(message -> {
+        }));
+        client.start();
+        assertThat(server.awaitConnection(WAIT)).isTrue();
+        assertThat(server.awaitLine(line -> line.startsWith("USER "), WAIT)).isNotNull();
+        server.welcome();
+        awaitState(IrcConnectionState.REGISTERED);
+
+        server.dropConnection();
+
+        // 等待重連的 30 秒內不能仍是 REGISTERED，否則 shell 會放行指令並在重連後意外送出
+        awaitState(IrcConnectionState.CONNECTING);
+        assertThat(server.awaitConnection(SHORT)).isFalse();
+    }
 }

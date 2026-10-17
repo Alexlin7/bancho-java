@@ -295,6 +295,10 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
                     log.warn("[osu! IRC] 連線中斷", e);
                 }
             }
+            if (!closed) {
+                // 等待重連之前就離開 REGISTERED，前端才不會在斷線期間放行指令
+                setState(IrcConnectionState.CONNECTING);
+            }
             if (closed || !waitBeforeReconnect()) {
                 return;
             }

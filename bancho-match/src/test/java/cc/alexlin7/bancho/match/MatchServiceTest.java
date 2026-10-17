@@ -10,8 +10,16 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.AppenderBase;
 
 import cc.alexlin7.bancho.irc.RecordingIrcSender;
 import cc.alexlin7.bancho.match.MatchState.Slot;
@@ -236,6 +244,43 @@ class MatchServiceTest {
         service.onMatchEvent(new PlayerJoined(8, "A", 1));
 
         assertThat(service.usedSlots()).isEqualTo(1);
+    }
+
+    @Test
+    void replyDuringTimeoutTransitionIsClassifiedAsLate() throws Exception {
+        CountDownLatch inGap = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        // 計時器把請求改成結果未知之後、完成 unknown() 之前會記這筆 log；在這裡把計時器 thread 停住，重現回覆剛好抵達的時機
+        AppenderBase<ILoggingEvent> gate = new AppenderBase<>() {
+            @Override
+            protected void append(ILoggingEvent event) {
+                if (event.getFormattedMessage().contains("開房結果未知")) {
+                    inGap.countDown();
+                    try {
+                        release.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            }
+        };
+        Logger logger = (Logger) LoggerFactory.getLogger(MatchService.class);
+        gate.start();
+        logger.addAppender(gate);
+        try {
+            MatchCreation creation = service.createMatch("r");
+            AtomicReference<Boolean> unknownDoneWhenRoomCompleted = new AtomicReference<>();
+            creation.room().whenComplete((room, error) -> unknownDoneWhenRoomCompleted.set(creation.unknown().isDone()));
+            assertThat(inGap.await(2, TimeUnit.SECONDS)).isTrue();
+
+            service.onMatchEvent(new MatchCreated(7, "r"));
+
+            // 已經判定為結果未知的請求，前端看到成功時也必須看到 unknown 已完成，才會當成晚到的回覆處理
+            assertThat(unknownDoneWhenRoomCompleted.get()).isTrue();
+        } finally {
+            release.countDown();
+            logger.detachAppender(gate);
+        }
     }
 
     @Test
