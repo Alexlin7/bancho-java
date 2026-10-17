@@ -6,7 +6,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Optional;
 
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
@@ -57,7 +56,7 @@ class JLineSecretPromptTest {
 
     @Test
     void endOfInputCancels() throws IOException {
-        assertThat(new JLineSecretPrompt(readerWithInput("")).read("新密碼：")).isEqualTo(Optional.empty());
+        assertThat(new JLineSecretPrompt(readerWithInput("")).read("新密碼：")).isEmpty();
     }
 
     @Test

@@ -14,8 +14,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.assertj.AssertableApplicationContext;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.event.EventListener;
@@ -28,12 +28,11 @@ import idv.alexlin7.tw.bancho.match.MatchState.ModSelection;
 import idv.alexlin7.tw.bancho.match.MatchState.Settings;
 import idv.alexlin7.tw.bancho.match.MatchState.Slot;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent;
-import idv.alexlin7.tw.bancho.match.event.MatchEvent.BeatmapChanged;
-import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchStarted;
-import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchAborted;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.AllPlayersReady;
-import idv.alexlin7.tw.bancho.match.event.MatchEvent.GameModeChanged;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.BeatmapChanged;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchAborted;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchFinished;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchStarted;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerFinished;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.SettingsChanged;
 

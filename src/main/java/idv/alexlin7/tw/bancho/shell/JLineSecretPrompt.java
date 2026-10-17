@@ -41,7 +41,7 @@ final class JLineSecretPrompt implements SecretPrompt {
         try {
             String line = reader.readLine(prompt, MASK);
             return line == null || line.isBlank() ? Optional.empty() : Optional.of(line.strip());
-        } catch (UserInterruptException | EndOfFileException e) {
+        } catch (UserInterruptException | EndOfFileException _) {
             return Optional.empty();
         } finally {
             if (!expansionDisabled) {

@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  */
 public record IrcMessage(String prefix, String command, List<String> params) {
 
-    private static final Pattern COMMAND = Pattern.compile("[A-Za-z]+|\\d{3}");
+    private static final Pattern COMMAND_PATTERN = Pattern.compile("[A-Za-z]+|\\d{3}");
     private static final Pattern SPACES = Pattern.compile(" +");
 
     public IrcMessage {
@@ -52,7 +52,7 @@ public record IrcMessage(String prefix, String command, List<String> params) {
             rest = rest.substring(0, trailingStart);
         }
         String[] parts = SPACES.split(rest.strip());
-        if (!COMMAND.matcher(parts[0]).matches()) {
+        if (!COMMAND_PATTERN.matcher(parts[0]).matches()) {
             return Optional.empty();
         }
         List<String> params = new ArrayList<>(Arrays.asList(parts).subList(1, parts.length));
