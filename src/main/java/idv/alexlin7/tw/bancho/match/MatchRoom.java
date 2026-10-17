@@ -173,7 +173,8 @@ public final class MatchRoom {
         return MP + "map " + beatmapId + (mode == null ? "" : " " + mode.id());
     }
 
-    private static String modsCommand(String... mods) {
+    /** 也供 {@link MatchConfiguration} 在啟動時檢查範本。 */
+    static String modsCommand(String... mods) {
         if (mods.length == 0) {
             throw new IllegalArgumentException("至少要指定一個 mod");
         }

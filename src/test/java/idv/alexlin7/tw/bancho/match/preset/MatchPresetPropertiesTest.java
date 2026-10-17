@@ -67,4 +67,19 @@ class MatchPresetPropertiesTest {
                     assertThat(context.getBean(MatchPresetProperties.class).presets().get("ok").mode()).isEqualTo("ctb");
                 });
     }
+
+    @Test
+    void concatenatedModsFailAtStartup() {
+        runner.withPropertyValues("bancho.match.presets.bad.mods=NFHD")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure()).hasStackTraceContaining("範本 bad 的 mods 無效：mod 要用空白分開");
+                });
+    }
+
+    @Test
+    void validModsStart() {
+        runner.withPropertyValues("bancho.match.presets.ok.mods=HD,HR,Freemod")
+                .run(context -> assertThat(context).hasNotFailed());
+    }
 }
