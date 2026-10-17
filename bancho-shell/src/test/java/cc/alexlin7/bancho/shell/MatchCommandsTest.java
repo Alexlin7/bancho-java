@@ -121,14 +121,17 @@ class MatchCommandsTest {
     }
 
     @Test
-    void lateReplyAfterUnknownStillUsesRoom() throws Exception {
+    void lateReplyDoesNotSwitchCurrentRoom() throws Exception {
         makeUntilUnknown("r");
+        matchService.attach(9);
+        session.use(9);
 
         matchService.onMatchEvent(new MatchCreated(5, "r"));
         awaitLastMake();
 
-        assertThat(printed).contains("房間已建立（晚到的回覆）：#mp_5 r");
-        assertThat(session.currentRoom()).contains(5L);
+        // 使用者可能已經在另一間房主持，晚到的房間不能悄悄變成目前房間
+        assertThat(printed).contains("房間已建立（晚到的回覆）：#mp_5 r；用 use 5 切換過去");
+        assertThat(session.currentRoom()).contains(9L);
     }
 
     @Test
