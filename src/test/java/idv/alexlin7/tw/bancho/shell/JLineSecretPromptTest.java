@@ -14,7 +14,7 @@ import org.jline.reader.Parser;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.reader.impl.LineReaderImpl;
 import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
+import org.jline.terminal.impl.DumbTerminal;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -30,9 +30,10 @@ class JLineSecretPromptTest {
     }
 
     private LineReader readerWithInput(String input) throws IOException {
-        terminal = TerminalBuilder.builder().system(false).dumb(true)
-                .streams(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), OutputStream.nullOutputStream())
-                .build();
+        // 不用 TerminalBuilder.streams()：它建出的 ExternalTerminal 由 pump 執行緒讀完輸入就關閉串流，讀取時會印出 closed stream 警告
+        terminal = new DumbTerminal("dumb", Terminal.TYPE_DUMB,
+                new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)), OutputStream.nullOutputStream(),
+                StandardCharsets.UTF_8);
         return LineReaderBuilder.builder().terminal(terminal).build();
     }
 
