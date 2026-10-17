@@ -13,6 +13,7 @@ import org.springframework.shell.core.command.CommandRegistry;
 import org.springframework.shell.core.command.completion.CompletionContext;
 import org.springframework.shell.core.command.completion.CompletionProposal;
 import org.springframework.shell.core.command.completion.DefaultCompletionProvider;
+import org.springframework.shell.jline.JLineInputProvider;
 import org.springframework.shell.test.ShellTestClient;
 
 /**
@@ -20,6 +21,14 @@ import org.springframework.shell.test.ShellTestClient;
  */
 @SpringBootTest
 class ShellIntegrationTest {
+
+    @Autowired
+    private JLineInputProvider inputProvider;
+
+    @Test
+    void shellReadsThroughInterruptAwareProvider() {
+        assertThat(inputProvider).isInstanceOf(InterruptAwareInputProvider.class);
+    }
 
     @Autowired
     private CommandParser parser;
