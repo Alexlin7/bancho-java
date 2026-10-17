@@ -354,6 +354,7 @@ public class MatchCommands {
         String header = room.channel() + " " + (state.name() == null ? "(未知)" : state.name())
                 + "  size " + (state.settings().size() == null ? "?" : state.settings().size())
                 + "  map " + (state.beatmap() == null ? "(未設定)" : state.beatmap().id() + " " + state.beatmap().title())
+                + "  mode " + (state.gameMode() == null ? "?" : state.gameMode())
                 + "  mods " + (state.mods().mods().isEmpty() ? "(無)" : String.join(" ", state.mods().mods()));
         String slots = state.slots().entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())

@@ -1,0 +1,31 @@
+# 使用者 2026-10-17 以 Spring Shell 實測的 BanchoBot 原文（第二次），依原順序；私訊對象統一為 test_user。
+# 取自終端機紀錄，沒有保留行尾空白；這些訊息不像 slot 行有補空白。
+:BanchoBot!cho@ppy.sh PRIVMSG test_user :Created the tournament match https://osu.ppy.sh/mp/122022753 test123房間
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Changed the match password
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Invited Alexlin86 to the room
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Alexlin86 joined in slot 1.
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Changed beatmap to https://osu.ppy.sh/b/2453358 Minato Aqua - Shiroi Yuki no Princess wa
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Changed match mode to CatchTheBeat
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Removed the match password
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :BMOBMO joined in slot 2.
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :All players are ready
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :The match has started!
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Started the match
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Alexlin86 finished playing (Score: 9245186, PASSED).
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :BMOBMO finished playing (Score: 3896754, PASSED).
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :The match has finished!
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Changed beatmap to https://osu.ppy.sh/b/4199355 Sena Airi (CV: Gogyou Nazuna) - Symphonic Love ReArrange
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Changed match mode to CatchTheBeat
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Disabled all mods, disabled FreeMod
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Enabled NoFail, Hidden, disabled FreeMod
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :BMOBMO left the game.
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :All players are ready
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :The match has started!
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Started the match
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Alexlin86 finished playing (Score: 12045531, PASSED).
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :The match has finished!
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Changed the match password
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :The match has started!
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Started the match
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Aborted the match
+:BanchoBot!cho@ppy.sh PRIVMSG #mp_122022753 :Changed match settings to 6 slots, TagTeamVs, ScoreV2

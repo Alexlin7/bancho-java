@@ -26,6 +26,10 @@ import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerLeft;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerMoved;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.SettingsChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.SlotStatus;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.AllPlayersReady;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.GameModeChanged;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchFinished;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerFinished;
 
 class BanchoBotParserTest {
 
@@ -64,6 +68,11 @@ class BanchoBotParserTest {
                         new BeatmapChanged(ROOM_ID, 1502772, "Asriel - Kegare Naki Yume")),
                 Arguments.of(ROOM, "Enabled Hidden, HardRock, disabled FreeMod",
                         new ModsChanged(ROOM_ID, List.of("Hidden", "HardRock"), false)),
+                Arguments.of(ROOM, "Changed match mode to CatchTheBeat", new GameModeChanged(ROOM_ID, "CatchTheBeat")),
+                Arguments.of(ROOM, "Alexlin86 finished playing (Score: 9245186, PASSED).",
+                        new PlayerFinished(ROOM_ID, "Alexlin86", 9245186, "PASSED")),
+                Arguments.of(ROOM, "The match has finished!", new MatchFinished(ROOM_ID)),
+                Arguments.of(ROOM, "All players are ready", new AllPlayersReady(ROOM_ID)),
                 Arguments.of(ROOM, "Slot 1  Not Ready https://osu.ppy.sh/u/4841753 Alexlin86       ",
                         new SlotStatus(ROOM_ID, 1, "Not Ready", 4841753, "Alexlin86"))
         );
@@ -81,6 +90,8 @@ class BanchoBotParserTest {
                 .isEqualTo(new Result.Parsed(new PlayerJoined(1, "Some Player", 3)));
         assertThat(parse("#mp_1", "Some Player left the game."))
                 .isEqualTo(new Result.Parsed(new PlayerLeft(1, "Some Player")));
+        assertThat(parse("#mp_1", "Some Player finished playing (Score: 0, FAILED)."))
+                .isEqualTo(new Result.Parsed(new PlayerFinished(1, "Some Player", 0, "FAILED")));
     }
 
     @ParameterizedTest
@@ -88,7 +99,8 @@ class BanchoBotParserTest {
             "Room name: 測試房, History: https://osu.ppy.sh/mp/122021273",
             "Team mode: HeadToHead, Win condition: ScoreV2",
             "Players: 1", "Started the match", "Countdown ends in 10 seconds", "Countdown ends in 1 second",
-            "Countdown finished", "Changed the match password", "Active mods: NoFail, Hidden"})
+            "Countdown finished", "Changed the match password", "Removed the match password",
+            "Active mods: NoFail, Hidden"})
     void ignoresKnownSettingsLines(String text) {
         assertThat(parse(ROOM, text)).isEqualTo(new Result.Ignored());
     }
