@@ -17,9 +17,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./mvnw -pl bancho-irc test -Dtest=OsuIrcClientTest#answersServerPing    # 跑單一測試方法
 ./mvnw -pl bancho-shell -am test -Dtest=MatchCommandsTest -Dsurefire.failIfNoSpecifiedTests=false   # 連同依賴模組一起編譯
 ./mvnw package                                   # 打包；可執行 jar 在 bancho-shell/target/
-java -jar bancho-shell/target/bancho-shell-0.0.1-SNAPSHOT.jar       # 啟動（需設定 osu.irc.* 憑證；終端機輸入要在真正的終端機裡）
+java -jar bancho-shell/target/bancho-shell-*.jar                    # 啟動（需設定 osu.irc.* 憑證；終端機輸入要在真正的終端機裡）
 ./mvnw -pl bancho-shell -am compile spring-boot:run                 # 開發時啟動（帶 --enable-native-access=ALL-UNNAMED，工作目錄為專案根目錄）
-java -jar bancho-shell/target/bancho-shell-0.0.1-SNAPSHOT.jar --spring.profiles.active=otel   # 同時把 log、metrics 送到 localhost:4318
+java -jar bancho-shell/target/bancho-shell-*.jar --spring.profiles.active=otel   # 同時把 log、metrics 送到 localhost:4318
 ```
 
 ### Maven 模組
@@ -41,11 +41,18 @@ java -jar bancho-shell/target/bancho-shell-0.0.1-SNAPSHOT.jar --spring.profiles.
 
 只發布 `bancho-parent`、`bancho-irc`（含 test-jar）、`bancho-irc-spring`；其他模組設 `bancho.publish.skip=true`（同時略過 sources、javadoc、簽章與 `skipPublishing`）。namespace `cc.alexlin7` 以 `alexlin7.cc` 的 DNS TXT 驗證。授權 MIT（根目錄 `LICENSE`）。
 
+發布一律從 main 進行，Central 上的版本必須對應一個 tag（已發布的版本永久存在，不能刪除或覆蓋）：
+
 ```bash
-./mvnw versions:set -DnewVersion=0.1.0 -DgenerateBackupPoms=false -DprocessAllModules   # Central 不收 -SNAPSHOT
-./mvnw -P release -DskipTests -Dgpg.skip -Dbancho.central.skip-upload=true deploy          # 只產生 target/central-publishing/central-bundle.zip 檢查內容
-./mvnw -P release deploy                                                                  # 簽章並上傳，再到 central.sonatype.com 按 Publish
+./mvnw versions:set -DnewVersion=X.Y.Z -DgenerateBackupPoms=false -DprocessAllModules   # Central 不收 -SNAPSHOT
+git commit -am "build: 版本 X.Y.Z" && git tag -a vX.Y.Z -m "bancho X.Y.Z"
+./mvnw -P release -DskipTests -Dgpg.skip -Dbancho.central.skip-upload=true deploy          # 選擇性：只產生 target/central-publishing/central-bundle.zip 檢查內容
+./mvnw -P release deploy -DskipTests "-Dgpg.executable=C:/Program Files/GnuPG/bin/gpg.exe" # 簽章並上傳，停在 VALIDATED
+# 到 https://central.sonatype.com/publishing/deployments 按 Publish（有問題就 Drop，版本號可重用），再 git push origin vX.Y.Z
+./mvnw versions:set -DnewVersion=X.Y.(Z+1)-SNAPSHOT -DgenerateBackupPoms=false -DprocessAllModules   # 改回開發版本並 commit
 ```
+
+`deploy` 預設不自動 Publish（沒有設 `autoPublish`）。GPG 金鑰（ed25519，Central 接受）在 Gpg4win 的 `%APPDATA%\gnupg`；Git Bash 自帶的 gpg 讀的是另一個空的 `~/.gnupg`，所以要以 `-Dgpg.executable` 指定 Gpg4win 的 gpg。passphrase 由 Gpg4win 的 pinentry 視窗輸入。
 
 `release` profile 用 `central-publishing-maven-plugin`（0.12.0 修正了 Maven 3.10.0 被拒的問題；不支援 Maven 4；它與 `maven-gpg-plugin` 不受 Boot 管理，版本寫在根 pom），憑證是 `~/.m2/settings.xml` 中 id 為 `central` 的 server（Central Portal 產生的 user token）。skip 類設定以屬性串接（`maven.javadoc.skip`、`gpg.skip` 等），不要寫死在 plugin configuration，否則命令列的 `-D` 無法覆寫。javadoc 以 `doclint=all,-missing` 執行，格式錯誤（例如 record 類別上的 `@throws`）會讓發布失敗。
 
