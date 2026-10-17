@@ -29,6 +29,11 @@ class LoggingPropertiesTest {
     }
 
     @Test
+    void shellHistoryHasItsOwnFile() throws IOException {
+        assertThat(mainProperties(Map.of()).getProperty("spring.shell.history.name")).isEqualTo("bancho-history");
+    }
+
+    @Test
     void consoleShowsOnlyWarnings() throws IOException {
         assertThat(mainProperties(Map.of()).getProperty("logging.threshold.console")).isEqualTo("WARN");
     }

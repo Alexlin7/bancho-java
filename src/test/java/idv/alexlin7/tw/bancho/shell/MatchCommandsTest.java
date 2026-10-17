@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
@@ -26,9 +27,15 @@ class MatchCommandsTest {
     private final MatchService matchService = new MatchService(sender, Duration.ofMillis(200));
     private final ShellSession session = new ShellSession();
     private final List<String> printed = Collections.synchronizedList(new ArrayList<>());
+    private final List<String> prompts = new ArrayList<>();
+    private Optional<String> typed = Optional.empty();
     private final MatchCommands commands = new MatchCommands(matchService, session, printed::add,
             new MatchPresetProperties(Map.of("practice",
-                    new MatchPreset(0, 3, 2, null, List.of("HD"), null, null, null, null))));
+                    new MatchPreset(0, 3, 2, null, List.of("HD"), null, null, null, null))),
+            prompt -> {
+                prompts.add(prompt);
+                return typed;
+            });
 
     private void awaitLastMake() throws Exception {
         commands.lastMake().handle((room, error) -> null).get(2, TimeUnit.SECONDS);
@@ -144,7 +151,7 @@ class MatchCommandsTest {
         commands.mods(List.of("HD", "HR"), 42L, null);
         commands.set("0", "3", "2", 42L, null);
         commands.settings(42L, null);
-        commands.password(null, 42L, null);
+        commands.password(List.of(), true, 42L, null);
         commands.addref(List.of("Ref1"), 42L, null);
         commands.close(42L, null);
 
@@ -206,13 +213,56 @@ class MatchCommandsTest {
     }
 
     @Test
-    void mpMasksPasswordReply() {
+    void mpPasswordIsRejected() {
         matchService.attach(42);
         sender.calls.clear();
-        assertThat(commands.mp(List.of("password", "secret"), 42L, null))
-                .isEqualTo("已送出：!mp password ***").doesNotContain("secret");
-        assertThat(commands.mp(List.of("PaSsWoRd", "secret"), 42L, null)).doesNotContain("secret");
-        assertThat(sender.calls).containsExactly("msg #mp_42 !mp password secret", "msg #mp_42 !mp PaSsWoRd secret");
+        String expected = "錯誤：設定密碼請用 password 指令（移除請用 password --clear）";
+        assertThat(commands.mp(List.of("password", "secret"), 42L, null)).isEqualTo(expected);
+        assertThat(commands.mp(List.of("PaSsWoRd"), 42L, null)).isEqualTo(expected);
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void passwordIsReadFromPrompt() {
+        matchService.attach(42);
+        sender.calls.clear();
+        typed = Optional.of("abc");
+        assertThat(commands.password(List.of(), false, 42L, null)).isEqualTo("已送出：!mp password ***");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp password abc");
+        assertThat(prompts).containsExactly("新密碼：");
+    }
+
+    @Test
+    void cancelledPromptSendsNothing() {
+        matchService.attach(42);
+        sender.calls.clear();
+        assertThat(commands.password(List.of(), false, 42L, null)).isEqualTo("已取消，密碼沒有變更");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void clearRemovesPassword() {
+        matchService.attach(42);
+        sender.calls.clear();
+        assertThat(commands.password(List.of(), true, 42L, null)).isEqualTo("已送出：!mp password（移除密碼）");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp password");
+        assertThat(prompts).isEmpty();
+    }
+
+    @Test
+    void passwordOnCommandLineIsRejected() {
+        matchService.attach(42);
+        sender.calls.clear();
+        assertThat(commands.password(List.of("abc"), false, 42L, null))
+                .isEqualTo("錯誤：密碼請在提示中輸入，不要寫在指令裡（會留在指令歷史）");
+        assertThat(sender.calls).isEmpty();
+        assertThat(prompts).isEmpty();
+    }
+
+    @Test
+    void passwordWithoutRoomDoesNotPrompt() {
+        assertThat(commands.password(List.of(), false, null, null)).isEqualTo(NO_ROOM);
+        assertThat(prompts).isEmpty();
     }
 
     @Test

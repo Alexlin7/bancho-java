@@ -46,6 +46,8 @@ application-local.yml
 ### Log ###
 *.log
 logs/
+# Spring Shell 的指令歷史
+bancho-history
 
 ### OS ###
 .DS_Store

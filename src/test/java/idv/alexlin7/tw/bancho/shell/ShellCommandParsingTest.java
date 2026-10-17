@@ -64,22 +64,27 @@ class ShellCommandParsingTest {
     }
 
     @Test
-    void startTimerAndPasswordTakePositionalValues() throws Exception {
+    void startAndTimerTakePositionalValues() throws Exception {
         run("start 10 --room 42");
         run("timer 60 --room 42");
-        run("password hunter2 --room 42");
 
-        assertThat(sender.calls).containsExactly(
-                "msg #mp_42 !mp start 10", "msg #mp_42 !mp timer 60", "msg #mp_42 !mp password hunter2");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp start 10", "msg #mp_42 !mp timer 60");
     }
 
     @Test
-    void withoutValueStartTimerAndPasswordUseDefaults() throws Exception {
+    void withoutValueStartAndTimerUseDefaults() throws Exception {
         run("start --room 42");
         run("timer --room 42");
-        run("password --room 42");
 
-        assertThat(sender.calls).containsExactly("msg #mp_42 !mp start", "msg #mp_42 !mp timer", "msg #mp_42 !mp password");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp start", "msg #mp_42 !mp timer");
+    }
+
+    @Test
+    void passwordInNonInteractiveModeIsAnError() throws Exception {
+        assertThat(run("password --room 42")).contains("錯誤：非互動模式無法輸入密碼");
+        run("password --clear --room 42");
+        assertThat(run("password hunter2 --room 42")).contains("不要寫在指令裡");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp password");
     }
 
     @Test
@@ -153,13 +158,12 @@ class ShellCommandParsingTest {
     }
 
     @Test
-    void mpRejectsCreationAndMasksPassword() throws Exception {
+    void mpRejectsCreationAndPassword() throws Exception {
         assertThat(run("mp --room 42")).startsWith("錯誤：");
         assertThat(run("mp make x --room 42")).contains("開房請用 make");
         assertThat(run("mp MakePrivate x --room 42")).contains("開房請用 make");
+        assertThat(run("mp password secret --room 42")).contains("設定密碼請用 password 指令");
         assertThat(sender.calls).isEmpty();
-        assertThat(run("mp password secret --room 42")).isEqualTo("已送出：!mp password ***");
-        assertThat(sender.calls).containsExactly("msg #mp_42 !mp password secret");
     }
 
     @Test
