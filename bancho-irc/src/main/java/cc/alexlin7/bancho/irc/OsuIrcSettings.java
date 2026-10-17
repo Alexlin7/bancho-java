@@ -4,6 +4,7 @@ import java.time.Duration;
 
 /**
  * {@link OsuIrcClient} 的連線設定，不依賴任何框架。{@code host}、{@code port}、{@code timing} 省略時使用預設值。
+ * {@code username} 與 {@code password} 同時為 null 代表延後登入：建立 client 後以 {@link OsuIrcClient#login} 提供。
  *
  * @param host     預設 {@code cho.ppy.sh}
  * @param port     預設 6667
@@ -23,7 +24,7 @@ public record OsuIrcSettings(
     public static final int DEFAULT_PORT = 6667;
 
     /**
-     * @throws IllegalArgumentException {@code username} 或 {@code password} 為空白
+     * @throws IllegalArgumentException {@code username} 或 {@code password} 為空白（兩者同時為 null 除外）
      */
     public OsuIrcSettings {
         if (host == null || host.isBlank()) {
@@ -35,14 +36,22 @@ public record OsuIrcSettings(
         if (timing == null) {
             timing = Timing.defaults();
         }
-        requireNotBlank(username, "username");
-        requireNotBlank(password, "password");
+        if (username != null || password != null) {
+            requireNotBlank(username, "username");
+            requireNotBlank(password, "password");
+        }
     }
 
-    private static void requireNotBlank(String value, String name) {
+    /** 帳密兩者同時為 null 時為 false（延後登入）。 */
+    public boolean hasCredentials() {
+        return username != null;
+    }
+
+    static String requireNotBlank(String value, String name) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(name + " 不得空白");
         }
+        return value;
     }
 
     /**

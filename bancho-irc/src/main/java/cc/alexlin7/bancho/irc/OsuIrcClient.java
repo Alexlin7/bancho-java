@@ -52,9 +52,14 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     private final AtomicReference<Connection> connection = new AtomicReference<>();
     private final List<Thread> workers = new CopyOnWriteArrayList<>();
 
+    private final List<IrcConnectionListener> connectionListeners = new CopyOnWriteArrayList<>();
+    private final AtomicReference<IrcConnectionState> state = new AtomicReference<>(IrcConnectionState.IDLE);
+
     private final Object lifecycleLock = new Object();
     private boolean started;
     private volatile boolean closed;
+    /** 來自 settings 或 {@link #login}；connection thread 每次登入時讀取。 */
+    private volatile Credentials credentials;
 
     /**
      * 只由 connection thread 讀寫。
@@ -68,6 +73,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         listeners.forEach(listener -> Objects.requireNonNull(listener, "listener"));
         this.listeners = new CopyOnWriteArrayList<>(listeners);
         this.reconnectDelay = timing.reconnectMinDelay();
+        this.credentials = settings.hasCredentials() ? new Credentials(settings.username(), settings.password()) : null;
     }
 
     private static boolean trySend(Connection current, String line) {
@@ -108,15 +114,83 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         listeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
+    /**
+     * 連線狀態改變時通知，從下一次改變開始。
+     */
+    public void addConnectionListener(IrcConnectionListener listener) {
+        connectionListeners.add(Objects.requireNonNull(listener, "listener"));
+    }
+
+    public IrcConnectionState state() {
+        return state.get();
+    }
+
+    /** settings 帶有帳密，或已經呼叫過 {@link #login}。 */
+    public boolean hasCredentials() {
+        return credentials != null;
+    }
+
+    /**
+     * @throws IllegalStateException 沒有帳密（延後登入時請改用 {@link #login}）
+     */
     public void start() {
         synchronized (lifecycleLock) {
             if (started || closed) {
                 return;
             }
-            started = true;
-            workers.add(Thread.ofVirtual().name("osu-irc-connection").start(this::runConnectionLoop));
-            workers.add(Thread.ofVirtual().name("osu-irc-dispatcher").start(this::runDispatchLoop));
-            workers.add(Thread.ofVirtual().name("osu-irc-sender").start(this::runSendLoop));
+            if (credentials == null) {
+                throw new IllegalStateException("尚未提供帳密，請先呼叫 login");
+            }
+            startWorkers();
+        }
+    }
+
+    /**
+     * 以這組帳密登入：還沒開始連線時等同 {@link #start()}，認證失敗後則以新帳密重新連線。
+     *
+     * @throws IllegalArgumentException 帳號或密碼空白
+     * @throws IllegalStateException    已登入、正在連線，或已關閉
+     */
+    public void login(String username, String password) {
+        Credentials given = new Credentials(OsuIrcSettings.requireNotBlank(username, "username"),
+                OsuIrcSettings.requireNotBlank(password, "password"));
+        synchronized (lifecycleLock) {
+            IrcConnectionState current = state.get();
+            if (closed || current != IrcConnectionState.IDLE && current != IrcConnectionState.AUTH_FAILED) {
+                throw new IllegalStateException(closed ? "連線已關閉" : "已登入或正在連線");
+            }
+            credentials = given;
+            if (!started) {
+                startWorkers();
+            } else {
+                // 認證失敗後 connection thread 已結束，dispatcher 與 sender 仍在執行，只要重開 connection thread
+                reconnectDelay = timing.reconnectMinDelay();
+                setState(IrcConnectionState.CONNECTING);
+                workers.add(Thread.ofVirtual().name("osu-irc-connection").start(this::runConnectionLoop));
+            }
+        }
+    }
+
+    /** 呼叫端必須持有 lifecycleLock。先設成 CONNECTING，login 才不會在 thread 啟動前再開一條連線。 */
+    private void startWorkers() {
+        started = true;
+        setState(IrcConnectionState.CONNECTING);
+        workers.add(Thread.ofVirtual().name("osu-irc-connection").start(this::runConnectionLoop));
+        workers.add(Thread.ofVirtual().name("osu-irc-dispatcher").start(this::runDispatchLoop));
+        workers.add(Thread.ofVirtual().name("osu-irc-sender").start(this::runSendLoop));
+    }
+
+    private void setState(IrcConnectionState next) {
+        IrcConnectionState previous = state.getAndSet(next);
+        if (previous == next) {
+            return;
+        }
+        for (IrcConnectionListener listener : connectionListeners) {
+            try {
+                listener.onStateChanged(next);
+            } catch (RuntimeException e) {
+                log.error("[osu! IRC] {} 處理連線狀態 {} 時發生例外", listener.getClass().getSimpleName(), next, e);
+            }
         }
     }
 
@@ -159,6 +233,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
             }
             closed = true;
         }
+        setState(IrcConnectionState.CLOSED);
         Connection current = connection.get();
         if (current != null) {
             try {
@@ -174,10 +249,14 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
 
     private void runConnectionLoop() {
         while (!closed) {
+            setState(IrcConnectionState.CONNECTING);
             try {
                 connectAndRead();
             } catch (AuthenticationFailedException e) {
-                log.error("[osu! IRC] 認證失敗，停止重連，請檢查 osu.irc.username / osu.irc.password", e);
+                log.error("[osu! IRC] 認證失敗，停止重連，請檢查帳號與 IRC 密碼", e);
+                if (!closed) {
+                    setState(IrcConnectionState.AUTH_FAILED);
+                }
                 return;
             } catch (IOException e) {
                 if (!closed) {
@@ -227,10 +306,11 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     // ---------------------------------------------------------------- dispatcher thread
 
     private void register(Connection current) throws IOException {
-        String nick = settings.username().replace(' ', '_');
-        current.writeLine("PASS " + settings.password());
+        Credentials login = credentials;
+        String nick = login.username().replace(' ', '_');
+        current.writeLine("PASS " + login.password());
         current.writeLine("NICK " + nick);
-        current.writeLine("USER " + nick + " 0 * :" + settings.username());
+        current.writeLine("USER " + nick + " 0 * :" + login.username());
     }
 
     /**
@@ -286,6 +366,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         channels.forEach(channel -> outbound.addFirst("JOIN " + channel));
         current.registered = true;
         log.info("[osu! IRC] 登入成功，加入頻道：{}", channels);
+        setState(IrcConnectionState.REGISTERED);
     }
 
     private void runDispatchLoop() {
@@ -338,6 +419,15 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     private boolean isRegistered() {
         Connection current = connection.get();
         return current != null && current.isUsable();
+    }
+
+    /** 不輸出密碼，避免寫進 log。 */
+    private record Credentials(String username, String password) {
+
+        @Override
+        public String toString() {
+            return "Credentials[username=" + username + ", password=***]";
+        }
     }
 
     private static final class Connection {
