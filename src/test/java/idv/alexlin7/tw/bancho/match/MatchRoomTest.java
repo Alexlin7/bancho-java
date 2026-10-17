@@ -91,6 +91,15 @@ class MatchRoomTest {
     }
 
     @Test
+    void everyKnownModIsAccepted() {
+        for (String mod : ModNames.KNOWN) {
+            room.mods(mod);
+        }
+        room.mods("sv2");
+        assertThat(sender.calls).hasSize(ModNames.KNOWN.size() + 1).contains("msg #mp_123 !mp mods SV2");
+    }
+
+    @Test
     void freemodIsAccepted() {
         room.mods("Freemod");
         room.mods("freemod");

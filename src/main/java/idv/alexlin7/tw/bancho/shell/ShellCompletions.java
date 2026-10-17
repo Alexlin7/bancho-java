@@ -15,6 +15,7 @@ import org.springframework.shell.core.command.completion.CompletionProvider;
 import idv.alexlin7.tw.bancho.match.GameMode;
 import idv.alexlin7.tw.bancho.match.MatchRoom;
 import idv.alexlin7.tw.bancho.match.MatchService;
+import idv.alexlin7.tw.bancho.match.ModNames;
 import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
 
 /**
@@ -23,12 +24,6 @@ import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
  */
 @Configuration
 class ShellCompletions {
-
-    /**
-     * osu! wiki「Game modifier」的 osu!stable 縮寫；Freemod 是 !mp mods 的特殊值。
-     */
-    static final List<String> MODS = List.of(
-            "EZ", "NF", "HT", "HR", "SD", "PF", "DT", "NC", "HD", "FL", "RL", "AP", "SO", "SV2", "Freemod");
 
     static final List<String> MP_SUBCOMMANDS = List.of(
             "aborttimer", "clearhost", "host", "kick", "listrefs", "lock", "move", "removeref", "size", "team",
@@ -83,7 +78,7 @@ class ShellCompletions {
     @Bean
     CompletionProvider modsCompletion(MatchService matchService) {
         return withRoomOption(matchService,
-                context -> filter(MODS.stream().map(CompletionProposal::new).toList(), context));
+                context -> filter(ModNames.KNOWN.stream().map(CompletionProposal::new).toList(), context));
     }
 
     @Bean

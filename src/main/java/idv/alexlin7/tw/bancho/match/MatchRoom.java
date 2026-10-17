@@ -4,8 +4,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import idv.alexlin7.tw.bancho.irc.IrcSender;
@@ -19,8 +17,6 @@ import idv.alexlin7.tw.bancho.match.preset.MatchPreset;
 public final class MatchRoom {
 
     private static final String MP = "!mp ";
-    /** 超過兩個字母、但 BanchoBot 確定接受的 mod 名稱（小寫）。 */
-    private static final Set<String> LONG_MOD_NAMES = Set.of("freemod");
 
     private final long matchId;
     private final IrcSender sender;
@@ -182,8 +178,7 @@ public final class MatchRoom {
             if (mod == null || mod.isBlank() || mod.chars().anyMatch(Character::isWhitespace)) {
                 throw new IllegalArgumentException("mod 名稱不可為空白或含空白：" + mod);
             }
-            // BanchoBot 看不懂 NFHD 這類連寫，會直接清空所有 mod；只放行確定接受的長名稱
-            if (mod.length() > 2 && !LONG_MOD_NAMES.contains(mod.toLowerCase(Locale.ROOT))) {
+            if (!ModNames.isSingleMod(mod)) {
                 throw new IllegalArgumentException("mod 要用空白分開，例如 mods NF HD");
             }
         }

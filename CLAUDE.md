@@ -59,7 +59,7 @@ OSU_IRC_USERNAME=...  OSU_IRC_PASSWORD=...
 - **`event.MatchEvent`**：sealed interface，事件都是巢狀 record。team mode、mod 名稱等維持 BanchoBot 原文字串，不轉 enum（沒有完整樣本）。
 - **`BanchoBotListener`**：`IrcMessageListener`，解析後用 `ApplicationEventPublisher` 發佈事件；看不懂的 BanchoBot 訊息記 INFO（帶 `match.id`、`banchobot.text`），是蒐集新樣本的管道。
 - **`MatchService`**：`createMatch(name)` 送 `!mp make` 並以房名對應 BanchoBot 的回覆（同名請求在等待中時拒絕，逾時預設 15 秒，`bancho.match.create-timeout`）；以 `@EventListener` 接收事件、登記並更新房間。收到 `MatchCreated` 一律登記並 join，收到其他未登記房號的事件只登記不 join，`MatchClosed` 時 part。
-- **`MatchRoom`**：封裝 `!mp` 指令（`mods` 會擋下 `NFHD` 這類連寫，BanchoBot 看不懂會清空所有 mod）；**`MatchState`** 是不可變 record（`gameMode` 為 BanchoBot 回覆的原文，例如 `CatchTheBeat`），存在 `AtomicReference`，事件只在 dispatcher thread 上套用，任何 thread 讀到的都是完整快照。
+- **`MatchRoom`**：封裝 `!mp` 指令（`mods` 會擋下 `NFHD` 這類連寫，BanchoBot 看不懂會清空所有 mod；可接受的長名稱與 shell 的 mod 補全共用 **`ModNames.KNOWN`**）；**`MatchState`** 是不可變 record（`gameMode` 為 BanchoBot 回覆的原文，例如 `CatchTheBeat`），存在 `AtomicReference`，事件只在 dispatcher thread 上套用，任何 thread 讀到的都是完整快照。
 
 Spring 事件預設同步在發布者的 thread（IRC dispatcher）上執行，所以所有 `@EventListener` 依訊息到達順序處理；耗時的 listener 要自行轉交其他 thread。
 
