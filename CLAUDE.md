@@ -17,12 +17,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./mvnw test -Dtest=OsuIrcClientTest#answersServerPing   # 跑單一測試方法
 ./mvnw package                                   # 打包 jar
 java -jar target/bancho-0.0.1-SNAPSHOT.jar       # 啟動（需設定 osu.irc.* 憑證；終端機輸入要在真正的終端機裡）
+./mvnw spring-boot:run                           # 開發時啟動（pom 已帶 --enable-native-access=ALL-UNNAMED）
 java -jar target/bancho-0.0.1-SNAPSHOT.jar --spring.profiles.active=otel   # 同時把 log、metrics 送到 localhost:4318
 ```
 
 OpenTelemetry：預設不匯出任何資料；`otel` profile（`application-otel.properties`）把 log 與 metrics 用 HTTP 送到本機 collector 的 4318。log 透過 `logback-spring.xml` 的 `OpenTelemetryAppender` 送出，由 `observability.OpenTelemetryAppenderInitializer` 接上 SDK。`opentelemetry-logback-appender-1.0` 的版本必須對應 Boot 管理的 OTel API 版本（Boot 4.1.1 → API 1.62.0 → appender 2.28.1-alpha），不可單獨升級。測試的 `application.properties` 會遮蔽 main 的同名檔，兩邊都要關閉 metrics 匯出。
 
-互動 shell 的終端機只顯示 WARN 以上，完整 INFO log 寫到 `logs/bancho.log`（相對於啟動工作目錄），以 `BANCHO_LOG_FILE` 可改成其他相對或絕對路徑。沿用 Boot 的滾動檔案設定：`LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE` 預設 `10MB`，`LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY` 預設 `7` 天；`otel` profile 仍同時匯出紀錄。日後若改成不開 shell 的執行方式，也要把 `logging.threshold.console` 改回 INFO。
+JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行：JLine 以 FFM 操作 Windows 主控台（JEP 472），已明確授權——jar 的 manifest 有 `Enable-Native-Access: ALL-UNNAMED`（實測對 fat jar 內層 jar 有效），`spring-boot:run` 由 plugin 的 `jvmArguments` 帶入。protobuf 的 `sun.misc.Unsafe::arrayBaseOffset` 警告（JEP 498）來自 OTLP metrics 的依賴（`micrometer-registry-otlp` → `opentelemetry-proto` → `protobuf-java`），無法由我們修正，目前不處理；之後拆成 monorepo 時 shell 前端預計不帶 OTel，警告會一起消失。日後 JDK 預設改為 deny 時，仍帶 OTel 的模組要升級 protobuf 或加 `--sun-misc-unsafe-memory-access=allow`。不要用 `--illegal-native-access=allow` 這類全域開關。
+
+互動 shell 的終端機只顯示 WARN 以上，完整 INFO log 寫到 `logs/bancho.log`（相對於啟動工作目錄），以 `BANCHO_LOG_FILE` 可改成其他相對或絕對路徑。沿用 Boot 的滾動檔案設定：`LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE` 預設 `10MB`，`LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY` 預設 `7` 天；`otel` profile 仍同時匯出紀錄。Spring Shell 的指令歷史存在 `<工作目錄>/bancho-history`（`spring.shell.history.name`；預設的 `${spring.application.name}.log` 容易和 log 混淆），測試關閉歷史。日後若改成不開 shell 的執行方式，也要把 `logging.threshold.console` 改回 INFO。
 
 執行前需提供 IRC 憑證（從 https://osu.ppy.sh/home/account/edit#legacy-api 取得 IRC 密碼，不是帳號密碼），建議用環境變數而非寫進 `application.properties`：
 
@@ -56,7 +59,7 @@ OSU_IRC_USERNAME=...  OSU_IRC_PASSWORD=...
 - **`event.MatchEvent`**：sealed interface，事件都是巢狀 record。team mode、mod 名稱等維持 BanchoBot 原文字串，不轉 enum（沒有完整樣本）。
 - **`BanchoBotListener`**：`IrcMessageListener`，解析後用 `ApplicationEventPublisher` 發佈事件；看不懂的 BanchoBot 訊息記 INFO（帶 `match.id`、`banchobot.text`），是蒐集新樣本的管道。
 - **`MatchService`**：`createMatch(name)` 送 `!mp make` 並以房名對應 BanchoBot 的回覆（同名請求在等待中時拒絕，逾時預設 15 秒，`bancho.match.create-timeout`）；以 `@EventListener` 接收事件、登記並更新房間。收到 `MatchCreated` 一律登記並 join，收到其他未登記房號的事件只登記不 join，`MatchClosed` 時 part。
-- **`MatchRoom`**：封裝 `!mp` 指令；**`MatchState`** 是不可變 record，存在 `volatile` 欄位，事件只在 dispatcher thread 上套用，任何 thread 讀到的都是完整快照。
+- **`MatchRoom`**：封裝 `!mp` 指令（`mods` 會擋下 `NFHD` 這類連寫，BanchoBot 看不懂會清空所有 mod）；**`MatchState`** 是不可變 record（`gameMode` 為 BanchoBot 回覆的原文，例如 `CatchTheBeat`），存在 `AtomicReference`，事件只在 dispatcher thread 上套用，任何 thread 讀到的都是完整快照。
 
 Spring 事件預設同步在發布者的 thread（IRC dispatcher）上執行，所以所有 `@EventListener` 依訊息到達順序處理；耗時的 listener 要自行轉交其他 thread。
 
@@ -78,8 +81,10 @@ bancho:
 
 ### `shell`：Spring Shell 前端
 
-- **`MatchCommands`**（`make <房名…> [--preset]`、`attach`、`use`、`rooms`、`invite <名稱…>`、`map <beatmapId> [模式]`、`mods`、`set`、`start [秒]`、`timer [秒]`、`abort`、`close`、`settings`、`password [密碼]`、`addref`）與 **`ChatCommands`**（`say`、`msg`）。房間指令預設作用在 **`ShellSession`** 的目前房間，`--room <房號>` 可指定其他房間；由 `RoomResolver` 解析房間，參數錯誤一律轉成 `錯誤：...` 文字，不讓例外冒到 shell。Spring Shell 會悄悄忽略打錯的選項與多餘的參數，所以每個指令先經過 **`InputGuard`**（注入 `CommandContext` 檢查）拒絕它們；以 `-` 開頭的聊天文字要用雙引號包起來。
-- `mp <指令…> [--room <房號>]` 可轉送未包裝的 `!mp` 子指令；開房請用 `make`，`mp password` 的回覆遮蔽密碼。`mpCompletion` 只補第一個位置參數的常用子指令與 `--room` 的房號。
+- **`MatchCommands`**（`make <房名…> [--preset]`、`attach`、`use`、`rooms`、`invite <名稱…>`、`map <beatmapId> [模式]`、`mods`、`set`、`start [秒]`、`timer [秒]`、`abort`、`close`、`settings`、`password [--clear]`、`addref`）與 **`ChatCommands`**（`say`、`msg`）。房間指令預設作用在 **`ShellSession`** 的目前房間，`--room <房號>` 可指定其他房間；由 `RoomResolver` 解析房間，參數錯誤一律轉成 `錯誤：...` 文字，不讓例外冒到 shell。Spring Shell 會悄悄忽略打錯的選項與多餘的參數，所以每個指令先經過 **`InputGuard`**（注入 `CommandContext` 檢查）拒絕它們；以 `-` 開頭的聊天文字要用雙引號包起來。
+- `mp <指令…> [--room <房號>]` 可轉送未包裝的 `!mp` 子指令；開房請用 `make`，`mp password` 一律拒絕（密碼會留在指令歷史）。`mpCompletion` 只補第一個位置參數的常用子指令與 `--room` 的房號。
+- `password` 先確定房間，再以 **`SecretPrompt`** 提示輸入（JLine 遮蔽、以 `*` 回顯，不寫入歷史）；空白輸入或 Ctrl+C 取消，`--clear` 移除密碼，密碼寫在指令裡會被拒絕。非互動模式的 `SecretPrompt` 直接丟 `IllegalStateException`。
+- 數字位置參數（`set`、`map`、`attach`、`use`）收 `String` 自行解析：交給 Spring Shell 轉換時，少給或非數字只會得到看不懂的英文例外。少給或格式錯誤一律回 `錯誤：用法：…`。
 - `-` 開頭名稱可用雙引號（`addref "-SH-" --room 42`），或在目前房間使用 `addref -- -SH-`。`--` 只能緊接指令，之後不能再加選項（`--room`、`--room=…` 都會被拒絕）；要指定房間請用雙引號。單引號不會被移除。JLine 對已輸入開引號的候選值會重複引號，因此使用者名稱補全暫不自動加引號；跳脫請手動輸入。
 - **`ShellOutput`**：有 JLine `LineReader` 時用 `printAbove`，訊息印在輸入行上方。**`ShellMessagePrinter`** 把收到的 IRC 訊息印出來。
 - **`ShellCompletions`**：`CompletionProvider` bean（`roomCompletion`、`roomOptionCompletion`、`userCompletion`、`modsCompletion`、`makeCompletion`、`mapCompletion`），名稱即 `@Command(completionProvider = ...)` 的值。Spring Shell 會自己補選項名稱，provider 只給值。**`KnownUsers`** 收集房間事件、私訊與範本名單中的使用者名稱。
