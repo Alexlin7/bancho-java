@@ -23,6 +23,10 @@ import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerLeft;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerMoved;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.SettingsChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.SlotStatus;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.AllPlayersReady;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.GameModeChanged;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchFinished;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerFinished;
 
 class MatchStateTest {
 
@@ -123,5 +127,19 @@ class MatchStateTest {
         initial.apply(new PlayerJoined(1, "A", 1));
 
         assertThat(initial.slots()).isEmpty();
+    }
+
+    @Test
+    void gameModeChangedUpdatesMode() {
+        assertThat(initial.gameMode()).isNull();
+        assertThat(initial.apply(new GameModeChanged(1, "CatchTheBeat")).gameMode()).isEqualTo("CatchTheBeat");
+    }
+
+    @Test
+    void finishAndReadyEventsKeepState() {
+        MatchState state = initial.apply(new PlayerFinished(1, "Alexlin86", 9245186, "PASSED"))
+                .apply(new MatchFinished(1))
+                .apply(new AllPlayersReady(1));
+        assertThat(state).isEqualTo(initial);
     }
 }

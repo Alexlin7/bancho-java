@@ -5,12 +5,16 @@ import java.util.List;
 import java.util.Map;
 
 import idv.alexlin7.tw.bancho.match.event.MatchEvent;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.AllPlayersReady;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.BeatmapChanged;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.GameModeChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchClosed;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchCreated;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchFinished;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchStarted;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchAborted;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.ModsChanged;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerFinished;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerInvited;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerJoined;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerLeft;
@@ -21,10 +25,11 @@ import idv.alexlin7.tw.bancho.match.event.MatchEvent.SlotStatus;
 /**
  * 房間狀態的不可變快照。每個事件透過 {@link #apply(MatchEvent)} 產生新的實例。
  *
- * @param name 房名；手動加入、未看過開房訊息的房間為 null
+ * @param name     房名；手動加入、未看過開房訊息的房間為 null
+ * @param gameMode BanchoBot 回覆的遊玩模式原文（例如 CatchTheBeat）；尚未收到時為 null
  */
 public record MatchState(String name, boolean closed, Settings settings, Beatmap beatmap,
-                         ModSelection mods, Map<Integer, Slot> slots) {
+                         ModSelection mods, Map<Integer, Slot> slots, String gameMode) {
 
     public MatchState {
         slots = Map.copyOf(slots);
@@ -32,35 +37,36 @@ public record MatchState(String name, boolean closed, Settings settings, Beatmap
 
     public static MatchState initial(String name) {
         return new MatchState(name, false, new Settings(null, null, null), null,
-                new ModSelection(List.of(), false), Map.of());
+                new ModSelection(List.of(), false), Map.of(), null);
     }
 
     MatchState apply(MatchEvent event) {
         return switch (event) {
             case MatchCreated created -> name == null ? withName(created.name()) : this;
-            case MatchClosed _ -> new MatchState(name, true, settings, beatmap, mods, slots);
+            case MatchClosed _ -> new MatchState(name, true, settings, beatmap, mods, slots, gameMode);
             case PlayerInvited _ -> this;
-            case MatchStarted _, MatchAborted _ -> this;
+            case MatchStarted _, MatchAborted _, MatchFinished _, AllPlayersReady _, PlayerFinished _ -> this;
             case PlayerJoined joined -> withPlayerAt(joined.slot(), new Slot(joined.username(), null, null));
             case PlayerMoved moved -> withPlayerAt(moved.slot(), new Slot(moved.username(), null, null));
             case PlayerLeft left -> withSlots(without(left.username()));
             case SlotStatus status -> withPlayerAt(status.slot(),
                     new Slot(status.username(), status.userId(), status.status()));
             case SettingsChanged changed -> new MatchState(name, closed,
-                    new Settings(changed.size(), changed.teamMode(), changed.winCondition()), beatmap, mods, slots);
+                    new Settings(changed.size(), changed.teamMode(), changed.winCondition()), beatmap, mods, slots, gameMode);
             case BeatmapChanged changed -> new MatchState(name, closed, settings,
-                    new Beatmap(changed.beatmapId(), changed.title()), mods, slots);
+                    new Beatmap(changed.beatmapId(), changed.title()), mods, slots, gameMode);
             case ModsChanged changed -> new MatchState(name, closed, settings, beatmap,
-                    new ModSelection(changed.mods(), changed.freeMod()), slots);
+                    new ModSelection(changed.mods(), changed.freeMod()), slots, gameMode);
+            case GameModeChanged changed -> new MatchState(name, closed, settings, beatmap, mods, slots, changed.mode());
         };
     }
 
     private MatchState withName(String newName) {
-        return new MatchState(newName, closed, settings, beatmap, mods, slots);
+        return new MatchState(newName, closed, settings, beatmap, mods, slots, gameMode);
     }
 
     private MatchState withSlots(Map<Integer, Slot> newSlots) {
-        return new MatchState(name, closed, settings, beatmap, mods, newSlots);
+        return new MatchState(name, closed, settings, beatmap, mods, newSlots, gameMode);
     }
 
     /** 先把同名玩家從其他 slot 移除，再放進指定 slot（覆蓋原本的人）。 */

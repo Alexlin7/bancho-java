@@ -225,6 +225,12 @@ class MatchCommandsTest {
     }
 
     @Test
+    void roomsShowsGameMode() {
+        matchService.attach(42);
+        assertThat(commands.rooms(null)).contains("mode ?");
+    }
+
+    @Test
     void roomsListsOpenRooms() {
         assertThat(commands.rooms(null)).isEqualTo("目前沒有開著的房間");
 

@@ -31,6 +31,11 @@ import idv.alexlin7.tw.bancho.match.event.MatchEvent;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.BeatmapChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchStarted;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchAborted;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.AllPlayersReady;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.GameModeChanged;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchFinished;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerFinished;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.SettingsChanged;
 
 /**
  * 把真實的 BanchoBot 訊息經由假 IRC server 依序送入整個系統，驗證最後的房間狀態。
@@ -89,6 +94,30 @@ class MatchReplayIntegrationTest {
             assertThat(collector.events.stream().filter(MatchAborted.class::isInstance)).hasSize(1);
         });
         assertThat(output.getAll().lines().filter(line -> line.contains("未辨識的 BanchoBot 訊息"))).hasSize(4);
+    }
+
+    @Test
+    void replaysThirdSessionIntoRoomState(CapturedOutput output) throws Exception {
+        replay("/banchobot/session-2026-10-17b.irc", "JOIN #mp_122022753", (server, context) -> {
+            EventCollector collector = context.getBean(EventCollector.class);
+            await().atMost(WAIT).untilAsserted(() -> assertThat(collector.events)
+                    .contains(new SettingsChanged(122022753, 6, "TagTeamVs", "ScoreV2")));
+            MatchState state = context.getBean(MatchService.class).room(122022753).orElseThrow().state();
+            assertThat(state.name()).isEqualTo("test123房間");
+            assertThat(state.closed()).isFalse();
+            assertThat(state.beatmap()).isEqualTo(
+                    new Beatmap(4199355, "Sena Airi (CV: Gogyou Nazuna) - Symphonic Love ReArrange"));
+            assertThat(state.mods()).isEqualTo(new ModSelection(List.of("NoFail", "Hidden"), false));
+            assertThat(state.gameMode()).isEqualTo("CatchTheBeat");
+            assertThat(state.settings()).isEqualTo(new Settings(6, "TagTeamVs", "ScoreV2"));
+            assertThat(state.slots()).isEqualTo(Map.of(1, new Slot("Alexlin86", null, null)));
+            assertThat(collector.events.stream().filter(PlayerFinished.class::isInstance)).hasSize(3);
+            assertThat(collector.events.stream().filter(MatchFinished.class::isInstance)).hasSize(2);
+            assertThat(collector.events.stream().filter(AllPlayersReady.class::isInstance)).hasSize(2);
+            assertThat(collector.events.stream().filter(MatchStarted.class::isInstance)).hasSize(3);
+            assertThat(collector.events.stream().filter(MatchAborted.class::isInstance)).hasSize(1);
+        });
+        assertThat(output).doesNotContain("未辨識的 BanchoBot 訊息");
     }
 
     private static void replay(String resource, String join, ReplayAssertions assertions) throws Exception {

@@ -8,12 +8,16 @@ import java.util.regex.Pattern;
 
 import idv.alexlin7.tw.bancho.irc.IrcMessage;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.AllPlayersReady;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.BeatmapChanged;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.GameModeChanged;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchClosed;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchCreated;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchFinished;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchStarted;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.MatchAborted;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.ModsChanged;
+import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerFinished;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerInvited;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerJoined;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent.PlayerLeft;
@@ -42,12 +46,18 @@ final class BanchoBotParser {
             Pattern.compile("Countdown ends in \\d+ seconds?"),
             Pattern.compile("Countdown finished"),
             Pattern.compile("Changed the match password"),
+            Pattern.compile("Removed the match password"),
             Pattern.compile("Active mods: .+"));
 
     private static final List<Rule> CHANNEL_RULES = List.of(
             new Rule("Closed the match", (id, m) -> new MatchClosed(id)),
             new Rule("The match has started!", (id, m) -> new MatchStarted(id)),
             new Rule("Aborted the match", (id, m) -> new MatchAborted(id)),
+            new Rule("The match has finished!", (id, m) -> new MatchFinished(id)),
+            new Rule("All players are ready", (id, m) -> new AllPlayersReady(id)),
+            new Rule("Changed match mode to (\\S+)", (id, m) -> new GameModeChanged(id, m.group(1))),
+            new Rule("(.+?) finished playing \\(Score: (\\d+), (\\w+)\\)\\.",
+                    (id, m) -> new PlayerFinished(id, m.group(1), Long.parseLong(m.group(2)), m.group(3))),
             new Rule("Disabled all mods, (enabled|disabled) FreeMod",
                     (id, m) -> new ModsChanged(id, List.of(), "enabled".equals(m.group(1)))),
             new Rule("Invited (.+) to the room", (id, m) -> new PlayerInvited(id, m.group(1))),

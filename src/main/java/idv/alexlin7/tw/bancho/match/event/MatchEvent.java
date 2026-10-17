@@ -26,6 +26,22 @@ public sealed interface MatchEvent {
     record MatchAborted(long matchId) implements MatchEvent {
     }
 
+    /** The match has finished! */
+    record MatchFinished(long matchId) implements MatchEvent {
+    }
+
+    /** All players are ready */
+    record AllPlayersReady(long matchId) implements MatchEvent {
+    }
+
+    /** Changed match mode to {mode}（目前只有 CatchTheBeat 的樣本） */
+    record GameModeChanged(long matchId, String mode) implements MatchEvent {
+    }
+
+    /** {username} finished playing (Score: {score}, {result}).（result 目前只有 PASSED 的樣本） */
+    record PlayerFinished(long matchId, String username, long score, String result) implements MatchEvent {
+    }
+
     /** Invited {username} to the room */
     record PlayerInvited(long matchId, String username) implements MatchEvent {
     }
