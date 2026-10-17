@@ -463,6 +463,16 @@ class OsuIrcClientTest {
     }
 
     @Test
+    void exposesUsernameButNotPassword() {
+        createDeferredClient(null);
+        assertThat(client.username()).isEmpty();
+
+        client.login("test user", "secret");
+
+        assertThat(client.username()).contains("test user");
+    }
+
+    @Test
     void loginRejectsBlankCredentials() {
         createDeferredClient(null);
 

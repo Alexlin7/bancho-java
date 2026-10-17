@@ -25,14 +25,15 @@ class ConnectionStatusPrinter {
     /** 早於 shell runner，提示會出現在第一個輸入行之前。 */
     @EventListener(ApplicationStartedEvent.class)
     void onApplicationStarted() {
-        if (!client.hasCredentials()) {
-            out.println("尚未登入，請先執行 login");
-        }
+        // 用環境變數登入的人可能忘了自己有設，明確說出是哪個帳號、從哪裡來
+        client.username().ifPresentOrElse(
+                account -> out.println("以設定的帳號 " + account + " 自動登入（OSU_IRC_USERNAME／OSU_IRC_PASSWORD）"),
+                () -> out.println("尚未登入，請先執行 login"));
     }
 
     private void onStateChanged(IrcConnectionState state) {
         if (state == IrcConnectionState.REGISTERED) {
-            out.println("已登入 Bancho");
+            out.println("已登入 Bancho：" + client.username().orElse(""));
         } else if (state == IrcConnectionState.AUTH_FAILED) {
             out.println("登入失敗：帳號或 IRC 密碼錯誤，請重新 login");
         }

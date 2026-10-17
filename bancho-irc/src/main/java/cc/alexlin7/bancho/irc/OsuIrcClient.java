@@ -146,6 +146,12 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         return state.get();
     }
 
+    /** 目前使用的帳號（來自 settings 或 {@link #login}）；還沒有帳密時為 empty。 */
+    public Optional<String> username() {
+        Credentials current = credentials;
+        return current == null ? Optional.empty() : Optional.of(current.username());
+    }
+
     /** settings 帶有帳密，或已經呼叫過 {@link #login}。 */
     public boolean hasCredentials() {
         return credentials != null;
