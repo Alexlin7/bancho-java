@@ -54,6 +54,14 @@ class MatchRoomPresetTest {
     }
 
     @Test
+    void concatenatedModsSendNothing() {
+        MatchPreset preset = new MatchPreset(0, 3, 2, null, List.of("NFHD"), null, null, null, null);
+
+        assertThatThrownBy(() -> room.apply(preset)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void outOfRangeSettingsSendNothing() {
         MatchPreset preset = new MatchPreset(9, 3, 2, null, null, null, null, List.of("Alexlin86"), null);
 

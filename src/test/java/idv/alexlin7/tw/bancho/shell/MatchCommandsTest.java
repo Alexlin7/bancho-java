@@ -225,6 +225,14 @@ class MatchCommandsTest {
     }
 
     @Test
+    void modsRejectsConcatenatedNames() {
+        matchService.attach(42);
+        sender.calls.clear();
+        assertThat(commands.mods(List.of("NFHD"), 42L, null)).isEqualTo("錯誤：mod 要用空白分開，例如 mods NF HD");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void roomsShowsGameMode() {
         matchService.attach(42);
         assertThat(commands.rooms(null)).contains("mode ?");
