@@ -3,6 +3,7 @@ package idv.alexlin7.tw.bancho.shell;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
@@ -44,12 +45,14 @@ public class MatchCommands {
     private final ShellOutput out;
     private final RoomResolver rooms;
     private final MatchPresetProperties presets;
+    private final SecretPrompt secretPrompt;
     private volatile CompletableFuture<?> lastMake = CompletableFuture.completedFuture(null);
 
     public MatchCommands(MatchService matchService, ShellSession session, ShellOutput out,
-                         MatchPresetProperties presets) {
+                         MatchPresetProperties presets, SecretPrompt secretPrompt) {
         this.matchService = matchService;
         this.presets = presets;
+        this.secretPrompt = secretPrompt;
         this.session = session;
         this.out = out;
         this.rooms = new RoomResolver(matchService, session);
@@ -251,13 +254,30 @@ public class MatchCommands {
     }
 
     @Command(name = "password", group = GROUP, completionProvider = "roomOptionCompletion",
-            description = "設定房間密碼；不給密碼則移除")
-    public String password(@Argument(index = 0, description = "密碼") String password,
+            description = "設定房間密碼（在提示中輸入，以 * 顯示）；--clear 移除密碼")
+    public String password(@Arguments List<String> words,
+                           @Option(longName = "clear", description = "移除密碼") boolean clear,
                            @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                            CommandContext context) {
-        return guardedOnRoom(context, 1, room, r -> {
-            r.password(password);
-            return SENT + (password == null || password.isBlank() ? "!mp password" : "!mp password ***");
+        String invalid = InputGuard.check(context, InputGuard.ANY, ROOM, "clear");
+        if (invalid != null) {
+            return invalid;
+        }
+        if (!words.isEmpty()) {
+            return "錯誤：密碼請在提示中輸入，不要寫在指令裡（會留在指令歷史）";
+        }
+        // 先確定房間再提示輸入，避免打完密碼才發現房間不存在
+        return rooms.onRoom(room, r -> {
+            if (clear) {
+                r.password(null);
+                return SENT + "!mp password（移除密碼）";
+            }
+            Optional<String> password = secretPrompt.read("新密碼：");
+            if (password.isEmpty()) {
+                return "已取消，密碼沒有變更";
+            }
+            r.password(password.get());
+            return SENT + "!mp password ***";
         });
     }
 
@@ -324,9 +344,12 @@ public class MatchCommands {
         if ("make".equalsIgnoreCase(subcommand) || "makeprivate".equalsIgnoreCase(subcommand)) {
             return "錯誤：開房請用 make 指令";
         }
+        if ("password".equalsIgnoreCase(subcommand)) {
+            return "錯誤：設定密碼請用 password 指令（移除請用 password --clear）";
+        }
         return rooms.onRoom(room, r -> {
             r.raw(arguments);
-            return SENT + "!mp " + ("password".equalsIgnoreCase(subcommand) ? "password ***" : arguments);
+            return SENT + "!mp " + arguments;
         });
     }
 
