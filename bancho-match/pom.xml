@@ -3,7 +3,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>cc.alexlin7</groupId>
+        <groupId>cc.alexlin7.bancho</groupId>
         <artifactId>bancho-parent</artifactId>
         <version>0.0.1-SNAPSHOT</version>
     </parent>
@@ -12,7 +12,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>cc.alexlin7</groupId>
+            <groupId>${project.groupId}</groupId>
             <artifactId>bancho-irc</artifactId>
         </dependency>
         <dependency>
@@ -21,7 +21,7 @@
         </dependency>
 
         <dependency>
-            <groupId>cc.alexlin7</groupId>
+            <groupId>${project.groupId}</groupId>
             <artifactId>bancho-irc</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
