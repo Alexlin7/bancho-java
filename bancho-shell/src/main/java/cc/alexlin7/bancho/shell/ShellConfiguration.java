@@ -1,10 +1,16 @@
 package cc.alexlin7.bancho.shell;
 
+import java.nio.file.Path;
+import java.time.Clock;
+
 import org.jline.reader.LineReader;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import cc.alexlin7.bancho.irc.OsuIrcClient;
 
 @Configuration
 class ShellConfiguration {
@@ -49,5 +55,19 @@ class ShellConfiguration {
             };
         }
         return prompt -> JLinePrompt.text(lineReader.getObject()).read(prompt);
+    }
+
+    /**
+     * 把 BanchoBot 與 Bancho 系統訊息寫進 log 資料夾的 {@code samples-<日期>.irc}，供測試者回傳補樣本。
+     * 預設開啟；{@code bancho.samples.enabled=false} 關閉（測試就是這樣設定）。
+     */
+    @Bean
+    @ConditionalOnProperty(prefix = "bancho.samples", name = "enabled", havingValue = "true", matchIfMissing = true)
+    SampleRecorder sampleRecorder(OsuIrcClient client,
+                                  @Value("${logging.file.name:logs/bancho.log}") String logFile) {
+        Path directory = Path.of(logFile).toAbsolutePath().getParent();
+        SampleRecorder recorder = new SampleRecorder(directory, Clock.systemDefaultZone());
+        client.addTrafficListener(recorder);
+        return recorder;
     }
 }
