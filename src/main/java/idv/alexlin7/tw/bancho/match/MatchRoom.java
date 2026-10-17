@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import idv.alexlin7.tw.bancho.irc.IrcSender;
 import idv.alexlin7.tw.bancho.match.event.MatchEvent;
@@ -23,12 +24,12 @@ public final class MatchRoom {
 
     private final long matchId;
     private final IrcSender sender;
-    private volatile MatchState state;
+    private final AtomicReference<MatchState> state;
 
     MatchRoom(long matchId, String name, IrcSender sender) {
         this.matchId = matchId;
         this.sender = sender;
-        this.state = MatchState.initial(name);
+        this.state = new AtomicReference<>(MatchState.initial(name));
     }
 
     public long matchId() {
@@ -40,11 +41,11 @@ public final class MatchRoom {
     }
 
     public MatchState state() {
-        return state;
+        return state.get();
     }
 
     void apply(MatchEvent event) {
-        state = state.apply(event);
+        state.updateAndGet(current -> current.apply(event));
     }
 
     public void invite(String username) {
@@ -151,7 +152,7 @@ public final class MatchRoom {
     }
 
     private void command(String text) {
-        if (state.closed()) {
+        if (state.get().closed()) {
             throw new IllegalStateException("房間已關閉：" + channel());
         }
         sender.sendMessage(channel(), text);
