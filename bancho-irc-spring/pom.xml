@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>cc.alexlin7.bancho</groupId>
+        <artifactId>bancho-parent</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+    <artifactId>bancho-irc-spring</artifactId>
+    <description>bancho-irc 的 Spring Boot auto-configuration（osu.irc.* 設定、連線生命週期）</description>
+
+    <!-- 依賴 autoconfigure 而不是 starter，才不會替使用者決定 log 後端 -->
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bancho-irc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bancho-irc</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <!-- 提供 jakarta.validation-api 與 Hibernate Validator，涵蓋使用端裝了 validator 的情況 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <executions>
+                    <!-- classpath 上有 Validation API 卻沒有實作：同一個 JVM 無法模擬，要真的移除 Hibernate Validator。
+                         明確指定 test，-Dtest 篩選其他測試時這個 execution 仍照常執行 -->
+                    <execution>
+                        <id>without-validator-provider</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <test>OsuIrcWithoutValidatorProviderTest</test>
+                            <classpathDependencyExcludes>
+                                <classpathDependencyExclude>org.hibernate.validator:hibernate-validator</classpathDependencyExclude>
+                            </classpathDependencyExcludes>
+                            <systemPropertyVariables>
+                                <bancho.test.without-validator-provider>true</bancho.test.without-validator-provider>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

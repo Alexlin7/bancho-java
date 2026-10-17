@@ -45,13 +45,13 @@ class OsuIrcClientTest {
         server.close();
     }
 
-    private OsuIrcProperties.Timing timing(Duration readTimeout, Duration sendInterval) {
-        return new OsuIrcProperties.Timing(Duration.ofSeconds(2), readTimeout, sendInterval,
+    private OsuIrcSettings.Timing timing(Duration readTimeout, Duration sendInterval) {
+        return new OsuIrcSettings.Timing(Duration.ofSeconds(2), readTimeout, sendInterval,
                 Duration.ofMillis(100), Duration.ofSeconds(1));
     }
 
-    private void startClient(OsuIrcProperties.Timing timing, IrcMessageListener handler) {
-        client = new OsuIrcClient(new OsuIrcProperties("127.0.0.1", server.port(), "test user", "secret", timing),
+    private void startClient(OsuIrcSettings.Timing timing, IrcMessageListener handler) {
+        client = new OsuIrcClient(new OsuIrcSettings("127.0.0.1", server.port(), "test user", "secret", timing),
                 List.of(handler));
         client.start();
     }
@@ -143,7 +143,7 @@ class OsuIrcClientTest {
     @Test
     void notifiesEveryListenerEvenIfOneFails() throws Exception {
         BlockingQueue<String> second = new LinkedBlockingQueue<>();
-        client = new OsuIrcClient(new OsuIrcProperties("127.0.0.1", server.port(), "test user", "secret",
+        client = new OsuIrcClient(new OsuIrcSettings("127.0.0.1", server.port(), "test user", "secret",
                 timing(Duration.ofSeconds(10), Duration.ZERO)), List.of(
                 message -> {
                     throw new IllegalStateException("first listener exploded");
@@ -335,7 +335,7 @@ class OsuIrcClientTest {
 
     @Test
     void closeIsSafeBeforeStartAndIdempotent() {
-        OsuIrcClient neverStarted = new OsuIrcClient(new OsuIrcProperties("127.0.0.1", server.port(), "u", "p", null)
+        OsuIrcClient neverStarted = new OsuIrcClient(new OsuIrcSettings("127.0.0.1", server.port(), "u", "p", null)
                 , List.of(message -> {
         }));
 

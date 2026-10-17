@@ -26,6 +26,12 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+        <!-- 測試要把 irc 與 match 組成 context；main 只用到 IrcSender 等純 Java 介面 -->
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bancho-irc-spring</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation-test</artifactId>

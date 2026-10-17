@@ -28,7 +28,8 @@ java -jar bancho-shell/target/bancho-shell-0.0.1-SNAPSHOT.jar --spring.profiles.
 
 | 模組 | 內容 |
 |---|---|
-| `bancho-irc` | `irc` 套件；另外產生 test-jar（`FakeIrcServer`、`RecordingIrcSender`），其他模組以 `<type>test-jar</type>` 依賴。不能拆成獨立模組：它依賴 irc，而 irc 自己的測試也要用它，會形成循環 |
+| `bancho-irc` | `irc` 套件，純 Java，compile 依賴只有 `slf4j-api`（不可加入 Spring 或 log 後端）；另外產生 test-jar（`FakeIrcServer`、`RecordingIrcSender`），其他模組以 `<type>test-jar</type>` 依賴。不能拆成獨立模組：它依賴 irc，而 irc 自己的測試也要用它，會形成循環 |
+| `bancho-irc-spring` | `irc.spring` 套件：`osu.irc.*` 綁定與 auto-configuration；依賴 `spring-boot-autoconfigure` 而不是 starter |
 | `bancho-match` | `match` 套件與 `banchobot/` 樣本 |
 | `bancho-observability` | `observability` 套件、`logback-spring.xml`、`application-otel.properties`；`@SpringBootTest` 由 test 的 `ObservabilityTestApplication` 啟動 |
 | `bancho-shell` | 唯一可執行的模組：`BanchoApplication`、`shell` 套件、`application.properties` |
@@ -48,25 +49,25 @@ JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行：
 OSU_IRC_USERNAME=...  OSU_IRC_PASSWORD=...
 ```
 
-`osu.irc.host` / `osu.irc.port` 預設 `cho.ppy.sh` / `6667`；`username`、`password` 有 `@NotBlank`，缺少時啟動直接失敗。`osu.irc.timing.*`（`connect-timeout`、`read-timeout`、`send-interval`、`reconnect-min-delay`、`reconnect-max-delay`）預設值見 `OsuIrcProperties.Timing`。`send-interval` 預設 500ms 是一般帳號的限制（10 則 / 5 秒）；bot 帳號（300 則 / 60 秒）可調到 200ms。`osu.irc.auto-start=false` 可不自動連線，`bancho-shell/src/test/resources/application.properties` 就是這樣設定，所以測試不會連到真的 Bancho。
+`osu.irc.host` / `osu.irc.port` 預設 `cho.ppy.sh` / `6667`；`username`、`password` 必填，空白時建立 client 就失敗（訊息為 `osu.irc.username 不得空白`）。`osu.irc.timing.*`（`connect-timeout`、`read-timeout`、`send-interval`、`reconnect-min-delay`、`reconnect-max-delay`）預設值見 `OsuIrcSettings.Timing`。`send-interval` 預設 500ms 是一般帳號的限制（10 則 / 5 秒）；bot 帳號（300 則 / 60 秒）可調到 200ms。`osu.irc.auto-start=false` 可不自動連線，`bancho-shell/src/test/resources/application.properties` 就是這樣設定，所以測試不會連到真的 Bancho。
 
 專案根目錄的 `.mcp.json` 設定了 IntelliJ IDEA MCP server（`idea`），可用來 build、跑測試、查 symbol。
 
 ## 架構
 
-依功能分 package，依賴方向只能是 `shell → match → irc`（`irc` 不認識房間，`match` 不認識前端）。只在 feature 內使用的類別設為 package-private。
+依功能分 package，依賴方向只能是 `shell → match → irc`，`irc.spring` 只由前端引入（`irc` 不認識房間，`match` 不認識前端；`match` 的 main 只依賴純 Java 的 `irc`）。只在 feature 內使用的類別設為 package-private。
 
 ### `irc`：IRC 連線核心
 
-- **`OsuIrcClient`**：不依賴 Spring 的 IRC client（刻意保持框架無關，未來可抽成獨立模組），由三條 virtual thread 組成：
+- **`OsuIrcClient`**：不依賴任何框架的 IRC client（設定由 **`OsuIrcSettings`** 傳入，預設值與帳密空白檢查都在這個 record；`toString` 不輸出密碼），由三條 virtual thread 組成：
   - **connection**：`PASS` → `NICK` → `USER` 登入，回應 `PING`；收到 `001` 才算登入完成，並重新 `JOIN` 記錄中的頻道。超過 `read-timeout` 沒收到資料就主動送 PING，再次逾時即判定半開連線並重連。重連採指數 backoff；收到 `464` 或 "Bad authentication" 時**停止重連**。
   - **dispatcher**：PRIVMSG 依到達順序**逐一**通知每個 `IrcMessageListener`；某個 listener 拋出例外只記 log，不影響其他 listener 和後續訊息。
   - **sender**：出站佇列，登入完成後才送出，每則間隔 `send-interval`；斷線期間的訊息會保留到重連後再送。
 - **`IrcMessage`**：IRC 行解析器（prefix / command / params，trailing 是最後一個 param）。判斷指令一律用 `command()`，**不要用字串 contains**。
 - **`IrcText`**：出站訊息會把 CR/LF/NUL 換成空白，並依 UTF-8 截到 510 bytes。target 含換行時直接拋出 `IllegalArgumentException`。
-- **`IrcMessageListener`（Observer）**：收訊介面。所有實作此介面的 Spring bean 會由 `OsuIrcConfiguration` 透過 `ObjectProvider.orderedStream()` 自動註冊進 client（順序依 `@Order`）。
+- **`IrcMessageListener`（Observer）**：收訊介面。所有實作此介面的 Spring bean 會由 `OsuIrcAutoConfiguration` 透過 `ObjectProvider.orderedStream()` 自動註冊進 client（順序依 `@Order`）。
 - **`IrcSender`**：送訊介面（`sendMessage` / `join` / `part`）。不是 listener 的 bean 可以直接注入；listener 要回話時則注入 `ObjectProvider<IrcSender>`，因為直接注入會和 client 的 `@Bean` 方法形成循環依賴，Boot 預設禁止。
-- **`OsuIrcConfiguration`** / **`OsuIrcLifecycle`**：註冊 client bean，以 `SmartLifecycle` 在 context refresh 完成時連線、關閉時送 QUIT。不能改回 `ApplicationReadyEvent`：Spring Shell 以 `ApplicationRunner` 佔住 main thread，ready 事件要到 `quit` 之後才會發生。
+- **`irc.spring.OsuIrcAutoConfiguration`** / **`OsuIrcLifecycle`**（`bancho-irc-spring`）：以 `AutoConfiguration.imports` 註冊（應用程式不必掃描 `cc.alexlin7.bancho`），`OsuIrcProperties` 以 `toSettings()` 轉成 `OsuIrcSettings` 後註冊 client bean。使用者自訂 `OsuIrcClient` 時，properties 的綁定跟預設 client 一起退出（`DefaultClientConfiguration` 上的 `@ConditionalOnMissingBean`），lifecycle 則照樣套用。IDE 補全用的 metadata 由 `spring-boot-configuration-processor`（根 pom 的 `annotationProcessorPaths`，不要再加進 `<dependencies>`）產生；不是 `OsuIrcProperties` 欄位的設定（例如 `osu.irc.auto-start`）要寫在 `META-INF/additional-spring-configuration-metadata.json`。`DefaultClientConfiguration` **不能加 `@Configuration`**：應用程式的元件掃描涵蓋本套件時會把它當一般設定提早處理，條件就看不到使用者的 bean；只能經由 `@Import` 載入。`OsuIrcProperties` **不用 `@Validated` / `@NotBlank`**：classpath 上只要有 Validation API，Boot 就會建立 validator，使用端只帶 API 不帶實作時會丟 `NoProviderFoundException`；帳密檢查只交給 `OsuIrcSettings`。這個情境同一個 JVM 無法模擬，由 surefire 的 `without-validator-provider` execution 移除 Hibernate Validator 後執行 `OsuIrcWithoutValidatorProviderTest`。以 `SmartLifecycle` 在 context refresh 完成時連線、關閉時送 QUIT。不能改回 `ApplicationReadyEvent`：Spring Shell 以 `ApplicationRunner` 佔住 main thread，ready 事件要到 `quit` 之後才會發生。
 
 ### `match`：多人房
 
@@ -124,7 +125,7 @@ Spring Shell 的非互動模式（`SPRING_SHELL_INTERACTIVE_ENABLED=false` 加�
 - BanchoBot 的真實樣本放在 `bancho-match/src/test/resources/banchobot/`（`.irc` 檔的行尾空白是原文的一部分）。新增解析規則前先加樣本與測試，不要憑記憶寫格式。`MatchReplayIntegrationTest` 會把樣本整段回放進系統。
 - 會被 SonarQube 掃描：`InterruptedException` 要重設中斷旗標，資源用 try-with-resources 關閉，測試避免 `Thread.sleep`（改用 `FakeIrcServer.awaitLine` / `awaitConnection` 這類有時限的等待）。
 - 測試不得啟動互動 shell：test 的 `application.properties` 設 `spring.shell.interactive.enabled=false`，`bancho-shell/src/test/.../TestShellRunnerConfiguration` 以空的 `springShellApplicationRunner` 取代 shell runner，並把 JLine 換成 dumb terminal（測試 JVM 沒有主控台，偵測系統 terminal 要約 40 秒）。它放在根 package，所以 shell 模組的每個 `@SpringBootTest` 都會掃描到。要經由真正的 parser / registry 測指令時，用 `new ShellTestClient(commandParser, commandRegistry)`。
-- 使用 `ApplicationContextRunner` 載入 `OsuIrcConfiguration` 時，除非就是要測連線，否則要設 `osu.irc.auto-start=false`，否則 `OsuIrcLifecycle` 會在 refresh 時連到真的 cho.ppy.sh。
+- 使用 `ApplicationContextRunner` 載入 `OsuIrcAutoConfiguration` 時，除非就是要測連線，否則要設 `osu.irc.auto-start=false`，否則 `OsuIrcLifecycle` 會在 refresh 時連到真的 cho.ppy.sh。
 - 測試的 OTel service name 是 `bancho-test`，與正式的 `bancho` 區隔。
 - 連線行為的測試使用 `irc.FakeIrcServer`（本機假 IRC server），不要連到真的 Bancho；記錄送訊內容用 `irc.RecordingIrcSender`。
 - 程式註解與 log 訊息使用繁體中文。

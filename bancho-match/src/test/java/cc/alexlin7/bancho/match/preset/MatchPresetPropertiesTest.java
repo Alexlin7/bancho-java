@@ -8,14 +8,14 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
-import cc.alexlin7.bancho.irc.OsuIrcConfiguration;
+import cc.alexlin7.bancho.irc.spring.OsuIrcAutoConfiguration;
 import cc.alexlin7.bancho.match.MatchConfiguration;
 import cc.alexlin7.bancho.match.MatchProperties;
 
 class MatchPresetPropertiesTest {
 
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
-            .withUserConfiguration(OsuIrcConfiguration.class, MatchConfiguration.class)
+            .withUserConfiguration(OsuIrcAutoConfiguration.class, MatchConfiguration.class)
             .withPropertyValues("osu.irc.auto-start=false", "osu.irc.username=someone", "osu.irc.password=secret");
 
     @Test

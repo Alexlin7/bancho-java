@@ -28,9 +28,10 @@
         <url/>
     </scm>
 
-    <!-- 依賴方向：shell / discord → match → irc；observability 只給前端使用 -->
+    <!-- 依賴方向：shell / discord → match → irc；irc-spring 與 observability 只給前端使用 -->
     <modules>
         <module>bancho-irc</module>
+        <module>bancho-irc-spring</module>
         <module>bancho-match</module>
         <module>bancho-observability</module>
         <module>bancho-shell</module>
@@ -62,6 +63,11 @@
                 <version>${project.version}</version>
                 <type>test-jar</type>
                 <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>bancho-irc-spring</artifactId>
+                <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>${project.groupId}</groupId>

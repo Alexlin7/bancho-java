@@ -2,35 +2,54 @@ package cc.alexlin7.bancho.irc;
 
 import java.time.Duration;
 
-import jakarta.validation.constraints.NotBlank;
-
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.validation.annotation.Validated;
-
 /**
+ * {@link OsuIrcClient} 的連線設定，不依賴任何框架。{@code host}、{@code port}、{@code timing} 省略時使用預設值。
+ *
+ * @param host     預設 {@code cho.ppy.sh}
+ * @param port     預設 6667
  * @param username osu! 使用者名稱（空白會自動轉成底線）
  * @param password IRC 密碼（https://osu.ppy.sh/home/account/edit#legacy-api），不是帳號密碼
+ * @param timing   預設值見 {@link Timing}
+ * @throws IllegalArgumentException {@code username} 或 {@code password} 為空白
  */
-@Validated
-@ConfigurationProperties(prefix = "osu.irc")
-public record OsuIrcProperties(
+public record OsuIrcSettings(
         String host,
         int port,
-        @NotBlank String username,
-        @NotBlank String password,
+        String username,
+        String password,
         Timing timing
 ) {
 
-    public OsuIrcProperties {
+    public static final String DEFAULT_HOST = "cho.ppy.sh";
+    public static final int DEFAULT_PORT = 6667;
+
+    public OsuIrcSettings {
         if (host == null || host.isBlank()) {
-            host = "cho.ppy.sh";
+            host = DEFAULT_HOST;
         }
         if (port <= 0) {
-            port = 6667;
+            port = DEFAULT_PORT;
         }
         if (timing == null) {
             timing = Timing.defaults();
         }
+        requireNotBlank(username, "username");
+        requireNotBlank(password, "password");
+    }
+
+    private static void requireNotBlank(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " 不得空白");
+        }
+    }
+
+    /**
+     * 不輸出密碼，避免寫進 log。
+     */
+    @Override
+    public String toString() {
+        return "OsuIrcSettings[host=" + host + ", port=" + port + ", username=" + username + ", password=***, timing="
+                + timing + "]";
     }
 
     /**

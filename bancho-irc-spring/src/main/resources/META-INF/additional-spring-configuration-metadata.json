@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "osu.irc.auto-start",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "context refresh 完成時自動連線，關閉時送出 QUIT；設為 false 可不自動連線（例如測試）。"
+    }
+  ]
+}

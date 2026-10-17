@@ -22,7 +22,7 @@ import org.springframework.context.event.EventListener;
 
 import cc.alexlin7.bancho.irc.FakeIrcServer;
 import cc.alexlin7.bancho.irc.OsuIrcClient;
-import cc.alexlin7.bancho.irc.OsuIrcConfiguration;
+import cc.alexlin7.bancho.irc.spring.OsuIrcAutoConfiguration;
 import cc.alexlin7.bancho.match.MatchState.Beatmap;
 import cc.alexlin7.bancho.match.MatchState.ModSelection;
 import cc.alexlin7.bancho.match.MatchState.Settings;
@@ -123,7 +123,7 @@ class MatchReplayIntegrationTest {
         List<String> lines = sampleLines(resource);
         try (FakeIrcServer server = new FakeIrcServer()) {
             new ApplicationContextRunner()
-                    .withUserConfiguration(OsuIrcConfiguration.class, MatchConfiguration.class, BanchoBotListener.class,
+                    .withUserConfiguration(OsuIrcAutoConfiguration.class, MatchConfiguration.class, BanchoBotListener.class,
                             EventCollector.class)
                     .withPropertyValues("osu.irc.host=127.0.0.1", "osu.irc.port=" + server.port(),
                             "osu.irc.username=test_user", "osu.irc.password=pw",

@@ -40,8 +40,8 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     private static final String KEEPALIVE_TOKEN = "bancho-keepalive";
     private static final Duration REGISTRATION_POLL = Duration.ofMillis(50);
 
-    private final OsuIrcProperties properties;
-    private final OsuIrcProperties.Timing timing;
+    private final OsuIrcSettings settings;
+    private final OsuIrcSettings.Timing timing;
     private final List<IrcMessageListener> listeners;
 
     private final BlockingQueue<IrcMessage> inbound = new LinkedBlockingQueue<>();
@@ -59,9 +59,9 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
      */
     private Duration reconnectDelay;
 
-    public OsuIrcClient(OsuIrcProperties properties, List<IrcMessageListener> listeners) {
-        this.properties = properties;
-        this.timing = properties.timing();
+    public OsuIrcClient(OsuIrcSettings settings, List<IrcMessageListener> listeners) {
+        this.settings = settings;
+        this.timing = settings.timing();
         this.listeners = List.copyOf(listeners);
         this.reconnectDelay = timing.reconnectMinDelay();
     }
@@ -194,7 +194,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
 
     private void connectAndRead() throws IOException {
         try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(properties.host(), properties.port()),
+            socket.connect(new InetSocketAddress(settings.host(), settings.port()),
                     toMillis(timing.connectTimeout()));
             socket.setSoTimeout(toMillis(timing.readTimeout()));
             Connection current = new Connection(socket);
@@ -215,10 +215,10 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     // ---------------------------------------------------------------- dispatcher thread
 
     private void register(Connection current) throws IOException {
-        String nick = properties.username().replace(' ', '_');
-        current.writeLine("PASS " + properties.password());
+        String nick = settings.username().replace(' ', '_');
+        current.writeLine("PASS " + settings.password());
         current.writeLine("NICK " + nick);
-        current.writeLine("USER " + nick + " 0 * :" + properties.username());
+        current.writeLine("USER " + nick + " 0 * :" + settings.username());
     }
 
     /**

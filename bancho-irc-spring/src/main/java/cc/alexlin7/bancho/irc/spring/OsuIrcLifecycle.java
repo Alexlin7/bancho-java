@@ -1,6 +1,8 @@
-package cc.alexlin7.bancho.irc;
+package cc.alexlin7.bancho.irc.spring;
 
 import org.springframework.context.SmartLifecycle;
+
+import cc.alexlin7.bancho.irc.OsuIrcClient;
 
 /**
  * 在 context refresh 完成時連線、關閉時送出 QUIT。
