@@ -12,6 +12,17 @@ public interface IrcSender {
     void sendMessage(String target, String message);
 
     /**
+     * 送出訊息，實際送出後執行 {@code onSent}。
+     * <p>
+     * 預設實作在兩參數的 {@link #sendMessage(String, String)} 回傳後立即執行 {@code onSent}，
+     * 只有同步送出的實作才符合「實際送出後通知」；以佇列或其他方式非同步送出的實作必須覆寫這個方法。
+     */
+    default void sendMessage(String target, String message, Runnable onSent) {
+        sendMessage(target, message);
+        onSent.run();
+    }
+
+    /**
      * 加入頻道；重新連線後會自動再加入。
      */
     void join(String channel);

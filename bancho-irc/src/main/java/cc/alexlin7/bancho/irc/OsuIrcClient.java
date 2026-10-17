@@ -23,6 +23,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.UnaryOperator;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,6 +41,8 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     private static final String CRLF = "\r\n";
     private static final String KEEPALIVE_TOKEN = "bancho-keepalive";
     private static final Duration REGISTRATION_POLL = Duration.ofMillis(50);
+    private static final Runnable NO_CALLBACK = () -> {
+    };
 
     private final OsuIrcSettings settings;
     private final OsuIrcSettings.Timing timing;
@@ -47,12 +50,15 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     private final List<IrcMessageListener> listeners;
 
     private final BlockingQueue<IrcMessage> inbound = new LinkedBlockingQueue<>();
-    private final BlockingDeque<String> outbound = new LinkedBlockingDeque<>();
+    private final BlockingDeque<Outbound> outbound = new LinkedBlockingDeque<>();
     private final Set<String> channels = ConcurrentHashMap.newKeySet();
     private final AtomicReference<Connection> connection = new AtomicReference<>();
     private final List<Thread> workers = new CopyOnWriteArrayList<>();
 
     private final List<IrcConnectionListener> connectionListeners = new CopyOnWriteArrayList<>();
+    private final List<IrcTrafficListener> trafficListeners = new CopyOnWriteArrayList<>();
+    /** 套用在出站行的 log 與 {@link IrcTrafficListener#sent}，不影響實際送出的內容。 */
+    private volatile UnaryOperator<String> outboundRedactor = UnaryOperator.identity();
     private final AtomicReference<IrcConnectionState> state = new AtomicReference<>(IrcConnectionState.IDLE);
 
     private final Object lifecycleLock = new Object();
@@ -76,10 +82,10 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         this.credentials = settings.hasCredentials() ? new Credentials(settings.username(), settings.password()) : null;
     }
 
-    private static boolean trySend(Connection current, String line) {
+    private boolean trySend(Connection current, String line) {
         try {
             current.writeLine(line);
-            log.debug("[osu! IRC] -> {}", line);
+            log.debug("[osu! IRC] -> {}", outboundRedactor.apply(line));
             return true;
         } catch (IOException e) {
             log.warn("[osu! IRC] 發送失敗，重新連線後重送", e);
@@ -112,6 +118,21 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
      */
     public void addListener(IrcMessageListener listener) {
         listeners.add(Objects.requireNonNull(listener, "listener"));
+    }
+
+    /**
+     * 觀察原始進出站行，從下一行開始通知。
+     */
+    public void addTrafficListener(IrcTrafficListener listener) {
+        trafficListeners.add(Objects.requireNonNull(listener, "listener"));
+    }
+
+    /**
+     * 出站行寫進 log 或交給 {@link IrcTrafficListener#sent} 前先經過這個函式（例如遮蔽密碼）；實際送出的內容不變。
+     * client 不認識上層的指令格式，遮蔽規則由使用端提供。
+     */
+    public void setOutboundRedactor(UnaryOperator<String> redactor) {
+        this.outboundRedactor = Objects.requireNonNull(redactor, "redactor");
     }
 
     /**
@@ -198,14 +219,25 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
 
     @Override
     public void sendMessage(String target, String message) {
+        sendMessage(target, message, NO_CALLBACK);
+    }
+
+    /**
+     * {@code onSent} 在 sender thread 上、該行實際寫出後執行；斷線重送時只在最後成功的那次執行，
+     * {@link #close()} 時還沒送出的不會執行。拋出的例外只記 log，該行仍視為已送出、不會重送。
+     */
+    @Override
+    public void sendMessage(String target, String message, Runnable onSent) {
+        Objects.requireNonNull(onSent, "onSent");
         String prefix = "PRIVMSG " + normalizeTarget(target) + " :";
         String text = IrcText.stripLineBreaks(message);
         int available = IrcText.MAX_LINE_BYTES - IrcText.utf8Length(prefix);
         String truncated = IrcText.truncateUtf8(text, available);
         if (truncated.length() < text.length()) {
-            log.warn("[osu! IRC] 訊息超過 {} bytes，已截斷：{}", IrcText.MAX_LINE_BYTES, truncated);
+            log.warn("[osu! IRC] 訊息超過 {} bytes，已截斷：{}", IrcText.MAX_LINE_BYTES,
+                    outboundRedactor.apply(prefix + truncated));
         }
-        outbound.add(prefix + truncated);
+        outbound.add(new Outbound(prefix + truncated, onSent));
     }
 
     @Override
@@ -213,7 +245,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         String name = normalizeChannel(channel);
         // 未登入時不必排入：登入完成（001）後會統一加入 channels 內的所有頻道
         if (channels.add(name) && isRegistered()) {
-            outbound.add("JOIN " + name);
+            outbound.add(new Outbound("JOIN " + name, NO_CALLBACK));
         }
     }
 
@@ -221,7 +253,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     public void part(String channel) {
         String name = normalizeChannel(channel);
         if (channels.remove(name) && isRegistered()) {
-            outbound.add("PART " + name);
+            outbound.add(new Outbound("PART " + name, NO_CALLBACK));
         }
     }
 
@@ -335,6 +367,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
                 throw new EOFException("伺服器關閉連線");
             }
             awaitingPong = false;
+            notifyReceived(line);
             Optional<IrcMessage> message = IrcMessage.parse(line);
             if (message.isPresent()) {
                 handleServerMessage(current, message.get());
@@ -363,7 +396,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     private void onRegistered(Connection current) {
         reconnectDelay = timing.reconnectMinDelay();
         // 重新加入頻道要排在斷線期間累積的訊息之前
-        channels.forEach(channel -> outbound.addFirst("JOIN " + channel));
+        channels.forEach(channel -> outbound.addFirst(new Outbound("JOIN " + channel, NO_CALLBACK)));
         current.registered = true;
         log.info("[osu! IRC] 登入成功，加入頻道：{}", channels);
         setState(IrcConnectionState.REGISTERED);
@@ -394,15 +427,42 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     private void runSendLoop() {
         try {
             while (!closed) {
-                String line = outbound.take();
-                if (trySend(awaitRegisteredConnection(), line)) {
+                Outbound next = outbound.take();
+                if (trySend(awaitRegisteredConnection(), next.line())) {
+                    notifySent(next);
                     Thread.sleep(timing.sendInterval());
                 } else {
-                    outbound.addFirst(line);
+                    outbound.addFirst(next);
                 }
             }
         } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private void notifySent(Outbound sent) {
+        String redacted = outboundRedactor.apply(sent.line());
+        try {
+            sent.onSent().run();
+        } catch (RuntimeException e) {
+            log.error("[osu! IRC] 送出後的通知發生例外：{}", redacted, e);
+        }
+        for (IrcTrafficListener listener : trafficListeners) {
+            try {
+                listener.sent(redacted);
+            } catch (RuntimeException e) {
+                log.error("[osu! IRC] {} 處理出站行時發生例外", listener.getClass().getSimpleName(), e);
+            }
+        }
+    }
+
+    private void notifyReceived(String line) {
+        for (IrcTrafficListener listener : trafficListeners) {
+            try {
+                listener.received(line);
+            } catch (RuntimeException e) {
+                log.error("[osu! IRC] {} 處理收到的行時發生例外", listener.getClass().getSimpleName(), e);
+            }
         }
     }
 
@@ -419,6 +479,10 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     private boolean isRegistered() {
         Connection current = connection.get();
         return current != null && current.isUsable();
+    }
+
+    /** 出站佇列的一行與送出後的通知。 */
+    private record Outbound(String line, Runnable onSent) {
     }
 
     /** 不輸出密碼，避免寫進 log。 */

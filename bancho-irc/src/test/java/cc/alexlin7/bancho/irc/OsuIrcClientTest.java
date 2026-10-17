@@ -3,8 +3,11 @@ package cc.alexlin7.bancho.irc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,10 +18,13 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
@@ -477,4 +483,149 @@ class OsuIrcClientTest {
             assertThat(reached.poll(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isEqualTo(expected);
         }
     }
+
+    // ---------------------------------------------------------------- 送出後通知、出站遮蔽、原始行觀察
+
+    @Test
+    void onSentRunsOnlyAfterLineIsWritten() throws Exception {
+        startClient(message -> {
+        });
+        assertThat(server.awaitLine(line -> line.startsWith("USER "), WAIT)).isNotNull();
+        CountDownLatch sent = new CountDownLatch(1);
+
+        client.sendMessage("BanchoBot", "!mp make r", sent::countDown);
+
+        assertThat(sent.await(SHORT.toMillis(), TimeUnit.MILLISECONDS)).isFalse();
+        server.welcome();
+        assertThat(server.awaitLine("PRIVMSG BanchoBot :!mp make r", WAIT)).isNotNull();
+        assertThat(sent.await(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+    }
+
+    @Test
+    void onSentExceptionDoesNotResendOrStopSender() throws Exception {
+        startAndRegister(message -> {
+        });
+        CountDownLatch secondSent = new CountDownLatch(1);
+
+        client.sendMessage("#mp_1", "first", () -> {
+            throw new IllegalStateException("boom");
+        });
+        client.sendMessage("#mp_1", "second", secondSent::countDown);
+
+        assertThat(server.awaitLine("PRIVMSG #mp_1 :first", WAIT)).isNotNull();
+        assertThat(server.awaitLine("PRIVMSG #mp_1 :second", WAIT)).isNotNull();
+        assertThat(secondSent.await(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isTrue();
+        assertThat(server.awaitLine("PRIVMSG #mp_1 :first", SHORT)).isNull();
+    }
+
+    @Test
+    void reportsRawInboundLinesWithTrailingSpaces() throws Exception {
+        BlockingQueue<String> received = new LinkedBlockingQueue<>();
+        startAndRegister(message -> {
+        });
+        client.addTrafficListener(new IrcTrafficListener() {
+            @Override
+            public void received(String line) {
+                received.add(line);
+            }
+        });
+        String slot = ":BanchoBot!cho@ppy.sh PRIVMSG #mp_1 :Slot 1  Not Ready https://osu.ppy.sh/u/1 A   ";
+
+        server.send(slot);
+
+        String line;
+        do {
+            line = received.poll(WAIT.toMillis(), TimeUnit.MILLISECONDS);
+        } while (line != null && !line.startsWith(":BanchoBot"));
+        assertThat(line).isEqualTo(slot);
+    }
+
+    @Test
+    void reportsSentLinesButNeverRegistration() throws Exception {
+        List<String> sent = new CopyOnWriteArrayList<>();
+        createDeferredClient(null);
+        client.addTrafficListener(new IrcTrafficListener() {
+            @Override
+            public void sent(String line) {
+                sent.add(line);
+            }
+        });
+        client.login("test user", "secret");
+        assertThat(server.awaitLine(line -> line.startsWith("USER "), WAIT)).isNotNull();
+        server.welcome();
+
+        client.sendMessage("BanchoBot", "!mp make r");
+
+        assertThat(server.awaitLine("PRIVMSG BanchoBot :!mp make r", WAIT)).isNotNull();
+        await().atMost(WAIT).until(() -> sent.contains("PRIVMSG BanchoBot :!mp make r"));
+        assertThat(sent).noneMatch(line -> line.startsWith("PASS") || line.startsWith("NICK")
+                || line.startsWith("USER"));
+    }
+
+    @Test
+    void redactorAppliesToLogsAndListenersNotWire(CapturedOutput output) throws Exception {
+        Logger logger = (Logger) LoggerFactory.getLogger(OsuIrcClient.class);
+        Level original = logger.getLevel();
+        logger.setLevel(Level.DEBUG);
+        try {
+            List<String> sent = new CopyOnWriteArrayList<>();
+            startAndRegister(message -> {
+            });
+            client.setOutboundRedactor(line -> line.replace("hunter2", "***"));
+            client.addTrafficListener(new IrcTrafficListener() {
+                @Override
+                public void sent(String line) {
+                    sent.add(line);
+                }
+            });
+
+            client.sendMessage("#mp_1", "!mp password hunter2");
+
+            assertThat(server.awaitLine("PRIVMSG #mp_1 :!mp password hunter2", WAIT)).isNotNull();
+            await().atMost(WAIT).until(() -> sent.contains("PRIVMSG #mp_1 :!mp password ***"));
+            assertThat(output).contains("-> PRIVMSG #mp_1 :!mp password ***").doesNotContain("hunter2");
+        } finally {
+            logger.setLevel(original);
+        }
+    }
+
+    @Test
+    void truncationWarningIsRedacted(CapturedOutput output) throws Exception {
+        startAndRegister(message -> {
+        });
+        client.setOutboundRedactor(line -> line.replace("hunter2", "***"));
+
+        client.sendMessage("#mp_1", "!mp password hunter2 " + "x".repeat(600));
+
+        assertThat(output).contains("已截斷").doesNotContain("hunter2");
+    }
+
+    @Test
+    void trafficListenerExceptionDoesNotBreakConnection() throws Exception {
+        BlockingQueue<IrcMessage> messages = new LinkedBlockingQueue<>();
+        startClient(messages::add);
+        client.addTrafficListener(new IrcTrafficListener() {
+            @Override
+            public void received(String line) {
+                throw new IllegalStateException("boom");
+            }
+
+            @Override
+            public void sent(String line) {
+                throw new IllegalStateException("boom");
+            }
+        });
+        assertThat(server.awaitLine(line -> line.startsWith("USER "), WAIT)).isNotNull();
+        server.welcome();
+        awaitState(IrcConnectionState.REGISTERED);
+
+        client.sendMessage("#mp_1", "one");
+        client.sendMessage("#mp_1", "two");
+        server.send(":a!a@x PRIVMSG #mp_1 :hello");
+
+        assertThat(server.awaitLine("PRIVMSG #mp_1 :two", WAIT)).isNotNull();
+        assertThat(messages.poll(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isNotNull();
+        assertThat(client.state()).isEqualTo(IrcConnectionState.REGISTERED);
+    }
+
 }
