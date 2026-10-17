@@ -75,7 +75,7 @@ public class MatchCommands {
         }
         String name = InputGuard.join(words);
         return RoomResolver.guarded(() -> {
-            lastMake.set(matchService.createMatch(name).whenComplete((room, error) -> {
+            lastMake.set(matchService.createMatch(name).room().whenComplete((room, error) -> {
                 if (error == null) {
                     session.use(room.matchId());
                     out.println("房間已建立：" + room.channel() + " " + name);

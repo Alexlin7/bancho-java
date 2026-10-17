@@ -2,18 +2,20 @@ package cc.alexlin7.bancho.match;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.junit.jupiter.api.Test;
 
 import cc.alexlin7.bancho.irc.RecordingIrcSender;
 import cc.alexlin7.bancho.match.MatchState.Slot;
+import cc.alexlin7.bancho.match.PendingMatch.Status;
 import cc.alexlin7.bancho.match.event.MatchEvent.MatchClosed;
 import cc.alexlin7.bancho.match.event.MatchEvent.MatchCreated;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerJoined;
@@ -21,39 +23,59 @@ import cc.alexlin7.bancho.match.event.MatchEvent.PlayerJoined;
 class MatchServiceTest {
 
     private static final Duration WAIT = Duration.ofSeconds(2);
+    private static final Duration TIMEOUT = Duration.ofMillis(200);
 
     private final RecordingIrcSender sender = new RecordingIrcSender();
-    private final MatchService service = new MatchService(sender, Duration.ofMillis(200));
+    private final MatchService service = new MatchService(sender, TIMEOUT);
+
+    /** 只記錄 onSent、不執行，用來模擬還在出站佇列裡（例如斷線中）的訊息。 */
+    static class HeldSender extends RecordingIrcSender {
+
+        final List<Runnable> held = new CopyOnWriteArrayList<>();
+
+        @Override
+        public void sendMessage(String target, String message, Runnable onSent) {
+            sendMessage(target, message);
+            held.add(onSent);
+        }
+    }
+
+    /** 等到確定超過逾時（以 Awaitility 的輪詢延遲取代 Thread.sleep）。 */
+    private static void waitPast(Duration duration) {
+        await().pollDelay(duration.multipliedBy(3)).atMost(duration.multipliedBy(3).plus(WAIT)).until(() -> true);
+    }
 
     @Test
     void createMatchSendsMakeCommandAndCompletesOnCreated() {
-        CompletableFuture<MatchRoom> future = service.createMatch("測試房");
+        MatchCreation creation = service.createMatch("測試房");
 
         assertThat(sender.calls).containsExactly("msg BanchoBot !mp make 測試房");
-        assertThat(future).isNotDone();
+        assertThat(creation.room()).isNotDone();
 
         service.onMatchEvent(new MatchCreated(122021273, "測試房"));
 
-        MatchRoom room = future.join();
+        MatchRoom room = creation.room().join();
         assertThat(room.matchId()).isEqualTo(122021273);
         assertThat(sender.calls).contains("join #mp_122021273");
         assertThat(service.openRooms()).containsExactly(room);
+        assertThat(service.usedSlots()).isEqualTo(1);
     }
 
     @Test
     void createMatchMatchesRoomNameWithSpaces() {
-        CompletableFuture<MatchRoom> future = service.createMatch("第一場 練習");
+        MatchCreation creation = service.createMatch("第一場 練習");
 
         service.onMatchEvent(new MatchCreated(5, "第一場 練習"));
 
-        assertThat(future.join().matchId()).isEqualTo(5);
+        assertThat(creation.room().join().matchId()).isEqualTo(5);
     }
 
     @Test
     void rejectsDuplicatePendingName() {
         service.createMatch("r");
 
-        assertThatThrownBy(() -> service.createMatch("r")).isInstanceOf(IllegalStateException.class);
+        assertThatIllegalStateException().isThrownBy(() -> service.createMatch("r"))
+                .withMessage("已有同名的開房請求在等待中：r");
         assertThat(sender.calls).containsExactly("msg BanchoBot !mp make r");
     }
 
@@ -65,24 +87,155 @@ class MatchServiceTest {
     }
 
     @Test
-    void createMatchTimesOut() {
-        CompletableFuture<MatchRoom> future = service.createMatch("r");
+    void timeoutTurnsUnknownAndKeepsSlot() {
+        MatchCreation creation = service.createMatch("r");
 
-        assertThat(future).failsWithin(WAIT)
-                .withThrowableOfType(ExecutionException.class)
-                .havingCause().isInstanceOf(TimeoutException.class);
+        assertThat(creation.unknown()).succeedsWithin(WAIT);
+        assertThat(creation.room()).isNotDone();
+        assertThat(service.pendingMatches()).containsExactly(new PendingMatch("r", Status.UNKNOWN));
+        assertThat(service.usedSlots()).isEqualTo(1);
+    }
+
+    @Test
+    void unsentRequestNeverTimesOut() {
+        HeldSender held = new HeldSender();
+        MatchService service = new MatchService(held, TIMEOUT);
+        MatchCreation creation = service.createMatch("r");
+
+        waitPast(TIMEOUT);
+
+        assertThat(creation.unknown()).isNotDone();
+        assertThat(service.pendingMatches()).containsExactly(new PendingMatch("r", Status.CREATING));
+        assertThat(service.drop("r")).isFalse();
+
+        held.held.forEach(Runnable::run);
+        assertThat(creation.unknown()).succeedsWithin(WAIT);
+    }
+
+    @Test
+    void replyBeforeOnSentStaysSuccessful() {
+        HeldSender held = new HeldSender();
+        MatchService service = new MatchService(held, TIMEOUT);
+        MatchCreation creation = service.createMatch("r");
+
+        service.onMatchEvent(new MatchCreated(3, "r"));
+        held.held.forEach(Runnable::run);
+        waitPast(TIMEOUT);
+
+        assertThat(creation.room()).isCompleted();
+        assertThat(creation.unknown()).isNotDone();
+        assertThat(service.pendingMatches()).isEmpty();
+        assertThat(service.usedSlots()).isEqualTo(1);
+    }
+
+    @Test
+    void staleTimerDoesNotAffectNewSameNameRequest() {
+        HeldSender held = new HeldSender();
+        MatchService service = new MatchService(held, TIMEOUT);
+        service.createMatch("r");
+        held.held.removeFirst().run();
+        service.onMatchEvent(new MatchCreated(3, "r"));
+        service.onMatchEvent(new MatchClosed(3));
+
+        MatchCreation second = service.createMatch("r");
+        waitPast(TIMEOUT);
+
+        assertThat(second.unknown()).isNotDone();
+        assertThat(service.pendingMatches()).containsExactly(new PendingMatch("r", Status.CREATING));
+    }
+
+    @Test
+    void unknownBlocksSameNameOnly() {
+        service.createMatch("r").unknown().join();
+
+        assertThatIllegalStateException().isThrownBy(() -> service.createMatch("r"))
+                .withMessage("同名的開房請求結果未知：r；確認遊戲內沒有這間房後用 drop 釋放");
+        assertThatCode(() -> service.createMatch("s")).doesNotThrowAnyException();
+        assertThat(sender.calls).containsExactly("msg BanchoBot !mp make r", "msg BanchoBot !mp make s");
+    }
+
+    @Test
+    void lateReplyCompletesUnknownRequest() {
+        MatchCreation creation = service.createMatch("r");
+        creation.unknown().join();
+
+        service.onMatchEvent(new MatchCreated(7, "r"));
+
+        assertThat(creation.room().join().matchId()).isEqualTo(7);
+        assertThat(service.pendingMatches()).isEmpty();
+        assertThat(service.usedSlots()).isEqualTo(1);
+        assertThat(sender.calls).contains("join #mp_7");
+    }
+
+    @Test
+    void fifthRoomRejectedLocally() {
+        service.attach(1);
+        service.createMatch("a");
+        service.onMatchEvent(new MatchCreated(2, "a"));
+        service.createMatch("b");
+        service.onMatchEvent(new MatchCreated(3, "b"));
+        service.createMatch("c");
+        assertThat(service.usedSlots()).isEqualTo(MatchService.MAX_ROOMS);
+        int before = sender.calls.size();
+
+        assertThatIllegalStateException().isThrownBy(() -> service.createMatch("d")).withMessage("名額已滿（4/4）");
+        assertThat(sender.calls).hasSize(before);
+    }
+
+    @Test
+    void closedRoomReleasesSlot() {
+        service.attach(1);
+        service.attach(2);
+        service.attach(3);
+        service.attach(4);
+
+        service.onMatchEvent(new MatchClosed(1));
+
+        assertThat(service.usedSlots()).isEqualTo(3);
         assertThatCode(() -> service.createMatch("r")).doesNotThrowAnyException();
     }
 
     @Test
-    void lateMatchCreatedStillRegistersRoom() {
-        CompletableFuture<MatchRoom> future = service.createMatch("r");
-        assertThat(future).failsWithin(WAIT).withThrowableOfType(ExecutionException.class);
+    void dropReleasesSlotButNotTheName() {
+        MatchCreation creation = service.createMatch("r");
+        creation.unknown().join();
 
-        assertThatCode(() -> service.onMatchEvent(new MatchCreated(9, "r"))).doesNotThrowAnyException();
+        assertThat(service.drop(" r ")).isTrue();
 
-        assertThat(service.room(9)).isPresent();
+        assertThat(creation.room()).isCancelled();
+        assertThat(service.usedSlots()).isZero();
+        assertThat(service.pendingMatches()).isEmpty();
+        assertThatIllegalStateException().isThrownBy(() -> service.createMatch("r"))
+                .withMessage("此房名已 drop，本次執行不能再用，請換一個房名：r");
+    }
+
+    @Test
+    void dropIgnoresCreatingRequest() {
+        HeldSender held = new HeldSender();
+        MatchService service = new MatchService(held, TIMEOUT);
+        service.createMatch("r");
+
+        assertThat(service.drop("r")).isFalse();
+        assertThat(service.drop("nope")).isFalse();
+    }
+
+    @Test
+    void replyAfterDropRegistersRoomOnce() {
+        service.createMatch("r").unknown().join();
+        service.drop("r");
+
+        service.onMatchEvent(new MatchCreated(9, "r"));
+
+        assertThat(service.openRooms()).extracting(MatchRoom::matchId).containsExactly(9L);
+        assertThat(service.usedSlots()).isEqualTo(1);
         assertThat(sender.calls).contains("join #mp_9");
+    }
+
+    @Test
+    void passivelyTrackedRoomCountsTowardSlots() {
+        service.onMatchEvent(new PlayerJoined(8, "A", 1));
+
+        assertThat(service.usedSlots()).isEqualTo(1);
     }
 
     @Test
