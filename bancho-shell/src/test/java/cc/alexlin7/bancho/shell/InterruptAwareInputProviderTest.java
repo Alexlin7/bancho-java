@@ -32,7 +32,9 @@ class InterruptAwareInputProviderTest {
 
     @BeforeEach
     void setUp() throws IOException {
+        // 明確指定 UTF-8：不指定時 writer 用 JVM 的 stdout.encoding，CI 的 Windows runner 不是 UTF-8，中文會變成 ?
         terminal = TerminalBuilder.builder().system(false).dumb(true)
+                .encoding(StandardCharsets.UTF_8).stdoutEncoding(StandardCharsets.UTF_8)
                 .streams(InputStream.nullInputStream(), output).build();
         reader = LineReaderBuilder.builder().terminal(terminal).build();
     }
