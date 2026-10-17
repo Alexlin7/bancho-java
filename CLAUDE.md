@@ -24,7 +24,7 @@ java -jar bancho-shell/target/bancho-shell-*.jar --spring.profiles.active=otel  
 
 ### Maven 模組
 
-根目錄 `pom.xml`（`cc.alexlin7.bancho:bancho-parent`，packaging `pom`）繼承 `spring-boot-starter-parent`，dependency 與 plugin 版本都由 Boot 管理，升級 Boot 只要改 parent 版本。發布的函式庫也沿用它：parent 沒有宣告 `<dependencies>`，不會增加使用者的依賴，`bancho-irc` 的 runtime 依賴仍只有 `slf4j-api`；日後若要讓發布的 pom 不帶 parent 鏈，用 `flatten-maven-plugin`（`ossrh` 模式），不要拔掉 starter-parent 自己維護 plugin 版本。集中管理內部模組與 Boot 不管理的版本（Spring Shell、OTel appender），所有模組共用 Lombok 與 annotation processor 設定。子模組不會繼承 `<name>`，每個模組都要自己寫。
+根目錄 `pom.xml`（`cc.alexlin7.bancho:bancho-parent`，packaging `pom`）繼承 `spring-boot-starter-parent`，dependency 與 plugin 版本都由 Boot 管理，升級 Boot 只要改 parent 版本。發布的函式庫也沿用它：parent 沒有宣告 `<dependencies>`，不會增加使用者的依賴，`bancho-irc` 的 runtime 依賴仍只有 `slf4j-api`；日後若要讓發布的 pom 不帶 parent 鏈，把 `flatten-maven-plugin` 改成 `ossrh` 模式，不要拔掉 starter-parent 自己維護 plugin 版本。集中管理內部模組與 Boot 不管理的版本（Spring Shell、OTel appender），所有模組共用 Lombok 與 annotation processor 設定。子模組不會繼承 `<name>`，每個模組都要自己寫。
 
 | 模組 | 內容 |
 |---|---|
@@ -44,13 +44,15 @@ java -jar bancho-shell/target/bancho-shell-*.jar --spring.profiles.active=otel  
 發布一律從 main 進行，Central 上的版本必須對應一個 tag（已發布的版本永久存在，不能刪除或覆蓋）：
 
 ```bash
-./mvnw versions:set -DnewVersion=X.Y.Z -DgenerateBackupPoms=false -DprocessAllModules   # Central 不收 -SNAPSHOT
+# 把根 pom 的 <revision> 改成 X.Y.Z（Central 不收 -SNAPSHOT）
 git commit -am "build: 版本 X.Y.Z" && git tag -a vX.Y.Z -m "bancho X.Y.Z"
 ./mvnw -P release -DskipTests -Dgpg.skip -Dbancho.central.skip-upload=true deploy          # 選擇性：只產生 target/central-publishing/central-bundle.zip 檢查內容
 ./mvnw -P release deploy -DskipTests "-Dgpg.executable=C:/Program Files/GnuPG/bin/gpg.exe" # 簽章並上傳，停在 VALIDATED
 # 到 https://central.sonatype.com/publishing/deployments 按 Publish（有問題就 Drop，版本號可重用），再 git push origin vX.Y.Z
-./mvnw versions:set -DnewVersion=X.Y.(Z+1)-SNAPSHOT -DgenerateBackupPoms=false -DprocessAllModules   # 改回開發版本並 commit
+# 把 <revision> 改成 X.Y.(Z+1)-SNAPSHOT 並 commit
 ```
+
+所有模組共用一個版本：根 pom 的 `<revision>` 屬性，子模組的 `<parent><version>` 寫 `${revision}`，自己不寫版本。`flatten-maven-plugin`（`resolveCiFriendliesOnly`）在 install／deploy 時把 pom 中的 `${revision}` 換成實際版本（產生 `.flattened-pom.xml`，已 ignore），不能移除，否則發布的 pom 會留下使用者解析不了的 `${revision}`。發布時改檔案並 commit，不要用 `-Drevision=X.Y.Z` 從命令列傳入：tag 指向的 commit 裡的版本會和 Central 對不上。只有函式庫會發布，應用程式模組（shell、discord）的版本只影響 jar 檔名，不需要為了它們發布新的函式庫版本。
 
 `deploy` 預設不自動 Publish（沒有設 `autoPublish`）。GPG 金鑰（ed25519，Central 接受）在 Gpg4win 的 `%APPDATA%\gnupg`；Git Bash 自帶的 gpg 讀的是另一個空的 `~/.gnupg`，所以要以 `-Dgpg.executable` 指定 Gpg4win 的 gpg。passphrase 由 Gpg4win 的 pinentry 視窗輸入。
 

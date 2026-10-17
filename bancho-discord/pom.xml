@@ -5,7 +5,7 @@
     <parent>
         <groupId>cc.alexlin7.bancho</groupId>
         <artifactId>bancho-parent</artifactId>
-        <version>0.1.1-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
     <artifactId>bancho-discord</artifactId>
     <name>bancho-discord</name>

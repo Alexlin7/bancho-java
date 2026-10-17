@@ -54,3 +54,6 @@ bancho-history
 ### OS ###
 .DS_Store
 Thumbs.db
+
+# flatten-maven-plugin 產生的 pom
+.flattened-pom.xml
