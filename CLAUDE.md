@@ -19,7 +19,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./mvnw package                                   # 打包；可執行 jar 在 bancho-shell/target/
 java -jar bancho-shell/target/bancho-shell-*.jar                    # 啟動（需設定 osu.irc.* 憑證；終端機輸入要在真正的終端機裡）
 ./mvnw -pl bancho-shell -am compile spring-boot:run                 # 開發時啟動（帶 --enable-native-access=ALL-UNNAMED，工作目錄為專案根目錄）
-java -jar bancho-shell/target/bancho-shell-*.jar --spring.profiles.active=otel   # 同時把 log、metrics 送到 localhost:4318
 pwsh bancho-shell/src/dist/package-windows.ps1 -Version X.Y.Z -Jar bancho-shell/target/bancho-shell-<版本>.jar -OutDir dist   # jpackage 打成內含 runtime 的 Windows zip（附使用說明.txt；log 與指令歷史寫在解壓縮資料夾內）
 ```
 
@@ -33,7 +32,7 @@ pwsh bancho-shell/src/dist/package-windows.ps1 -Version X.Y.Z -Jar bancho-shell/
 | `bancho-irc-spring` | `irc.spring` 套件：`osu.irc.*` 綁定與 auto-configuration；依賴 `spring-boot-autoconfigure` 而不是 starter |
 | `bancho-match` | `match` 套件與 `banchobot/` 樣本，純 Java，compile 依賴只有 `bancho-irc`（不可加入 Spring） |
 | `bancho-match-spring` | `match.spring` 套件：`bancho.match.*` 綁定、範本檢查與 auto-configuration，把房間事件轉成 Spring 事件 |
-| `bancho-observability` | `observability` 套件、`logback-spring.xml`、`application-otel.properties`；`@SpringBootTest` 由 test 的 `ObservabilityTestApplication` 啟動 |
+| `bancho-observability` | `observability` 套件、`logback-spring.xml`、`application-otel.properties`；`@SpringBootTest` 由 test 的 `ObservabilityTestApplication` 啟動。目前沒有前端依賴它（shell 已移除，避免把 OTLP 與 protobuf 帶進給測試者的版本），留給日後需要匯出的前端（例如 Discord） |
 | `bancho-shell` | 唯一可執行的模組：`BanchoApplication`、`shell` 套件、`application.properties` |
 | `bancho-discord` | 尚未實作 |
 
@@ -64,11 +63,11 @@ git commit -am "build: 版本 X.Y.Z" && git tag -a vX.Y.Z -m "bancho X.Y.Z"
 
 shell 測試版以 `shell-vX.Y.Z` tag 發布：`git tag -a shell-vX.Y.Z -m "bancho-shell X.Y.Z" && git push origin shell-vX.Y.Z`。`.github/workflows/shell-release.yml` 在 Windows runner 上跑測試、打包，建立 GitHub pre-release，附 `bancho-shell-X.Y.Z.jar` 與 `bancho-shell-X.Y.Z-windows.zip`（`package-windows.ps1` 產生）。版本取自 tag，不改 pom、不 commit，與 `<revision>` 及 Central 無關（jar 內的 Maven 版本可以和檔名不同）；`v*` tag 仍專用於 Central。tag 必須是三段數字，jpackage 的 `--app-version` 不接受其他格式。
 
-OpenTelemetry：預設不匯出任何資料；`otel` profile（`application-otel.properties`）把 log 與 metrics 用 HTTP 送到本機 collector 的 4318。log 透過 `logback-spring.xml` 的 `OpenTelemetryAppender` 送出，由 `observability.OpenTelemetryAppenderInitializer` 接上 SDK。`opentelemetry-logback-appender-1.0` 的版本必須對應 Boot 管理的 OTel API 版本（Boot 4.1.1 → API 1.62.0 → appender 2.28.1-alpha），不可單獨升級。metrics 匯出的預設關閉寫在前端模組的 `application.properties`（`application.properties` 不能放在函式庫模組，會和前端的同名檔互相遮蔽）；各模組測試的 `application.properties` 會遮蔽 main 的同名檔，也要關閉。
+OpenTelemetry：預設不匯出任何資料；`otel` profile（`application-otel.properties`）把 log 與 metrics 用 HTTP 送到本機 collector 的 4318。log 透過 `logback-spring.xml` 的 `OpenTelemetryAppender` 送出，由 `observability.OpenTelemetryAppenderInitializer` 接上 SDK。`opentelemetry-logback-appender-1.0` 的版本必須對應 Boot 管理的 OTel API 版本（Boot 4.1.1 → API 1.62.0 → appender 2.28.1-alpha），不可單獨升級。依賴這個模組的前端要自己在 `application.properties` 關閉 metrics 匯出（`management.otlp.metrics.export.enabled=false`；`application.properties` 不能放在函式庫模組，會和前端的同名檔互相遮蔽）；各模組測試的 `application.properties` 會遮蔽 main 的同名檔，也要關閉。
 
-JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行：JLine 以 FFM 操作 Windows 主控台（JEP 472），已明確授權——jar 的 manifest 有 `Enable-Native-Access: ALL-UNNAMED`（實測對 fat jar 內層 jar 有效），`spring-boot:run` 由 plugin 的 `jvmArguments` 帶入。protobuf 的 `sun.misc.Unsafe::arrayBaseOffset` 警告（JEP 498）來自 OTLP metrics 的依賴（`micrometer-registry-otlp` → `opentelemetry-proto` → `protobuf-java`），無法由我們修正，目前不處理；shell 前端日後若不再依賴 `bancho-observability`，警告會一起消失。日後 JDK 預設改為 deny 時，仍帶 OTel 的模組要升級 protobuf 或加 `--sun-misc-unsafe-memory-access=allow`。不要用 `--illegal-native-access=allow` 這類全域開關。
+JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行：JLine 以 FFM 操作 Windows 主控台（JEP 472），已明確授權——jar 的 manifest 有 `Enable-Native-Access: ALL-UNNAMED`（實測對 fat jar 內層 jar 有效），`spring-boot:run` 由 plugin 的 `jvmArguments` 帶入。protobuf 的 `sun.misc.Unsafe::arrayBaseOffset` 警告（JEP 498）來自 OTLP metrics 的依賴（`micrometer-registry-otlp` → `opentelemetry-proto` → `protobuf-java`）；shell 已不依賴 `bancho-observability`，不會再出現。日後依賴它的前端若遇到 JDK 預設改為 deny，要升級 protobuf 或加 `--sun-misc-unsafe-memory-access=allow`。不要用 `--illegal-native-access=allow` 這類全域開關。
 
-互動 shell 的終端機只顯示 WARN 以上，完整 INFO log 寫到 `logs/bancho.log`（相對於啟動工作目錄），以 `BANCHO_LOG_FILE` 可改成其他相對或絕對路徑。沿用 Boot 的滾動檔案設定：`LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE` 預設 `10MB`，`LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY` 預設 `7` 天；`otel` profile 仍同時匯出紀錄。同一個資料夾還有樣本檔 `samples-<日期>.irc`（`bancho.samples.enabled`，預設開啟，測試關閉）：`SampleRecorder` 以 `IrcTrafficListener` 只收 BanchoBot 的 PRIVMSG／NOTICE、伺服器 NOTICE、數字回覆（篩選在 `SampleFilter`），原樣寫入並保留行尾空白；我們送給 BanchoBot 或 `#mp_` 的指令與時間寫成 `#` 註解，回放測試會略過。玩家聊天、其他私訊、PASS 不會寫入，`!mp password` 已遮蔽。指令歷史的 `History` bean 換成 **`PasswordSafeHistory`**（Spring Shell 的是 `@ConditionalOnMissingBean`）：任何位置的 `!mp password <x>`、shell 的 `mp password …` 與 `password …` 不寫入歷史（比對前先去掉雙引號與反斜線，`say "!mp" "password" x` 這類 parser 等價寫法也擋），因為 JLine 在指令執行前就記錄整行，指令拒絕也來不及。Spring Shell 的指令歷史存在 `<工作目錄>/bancho-history`（`spring.shell.history.name`；預設的 `${spring.application.name}.log` 容易和 log 混淆），測試關閉歷史。日後若改成不開 shell 的執行方式，也要把 `logging.threshold.console` 改回 INFO。
+互動 shell 的終端機只顯示 WARN 以上，完整 INFO log 寫到 `logs/bancho.log`（相對於啟動工作目錄），以 `BANCHO_LOG_FILE` 可改成其他相對或絕對路徑。沿用 Boot 的滾動檔案設定：`LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE` 預設 `10MB`，`LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY` 預設 `7` 天。同一個資料夾還有樣本檔 `samples-<日期>.irc`（`bancho.samples.enabled`，預設開啟，測試關閉）：`SampleRecorder` 以 `IrcTrafficListener` 只收 BanchoBot 的 PRIVMSG／NOTICE、伺服器 NOTICE、數字回覆（篩選在 `SampleFilter`），原樣寫入並保留行尾空白；我們送給 BanchoBot 或 `#mp_` 的指令與時間寫成 `#` 註解，回放測試會略過。玩家聊天、其他私訊、PASS 不會寫入，`!mp password` 已遮蔽。指令歷史的 `History` bean 換成 **`PasswordSafeHistory`**（Spring Shell 的是 `@ConditionalOnMissingBean`）：任何位置的 `!mp password <x>`、shell 的 `mp password …` 與 `password …` 不寫入歷史（比對前先去掉雙引號與反斜線，`say "!mp" "password" x` 這類 parser 等價寫法也擋），因為 JLine 在指令執行前就記錄整行，指令拒絕也來不及。Spring Shell 的指令歷史存在 `<工作目錄>/bancho-history`（`spring.shell.history.name`；預設的 `${spring.application.name}.log` 容易和 log 混淆），測試關閉歷史。日後若改成不開 shell 的執行方式，也要把 `logging.threshold.console` 改回 INFO。
 
 IRC 憑證（從 https://osu.ppy.sh/home/account/edit#legacy-api 取得 IRC 密碼，不是帳號密碼）：shell 開啟了 `osu.irc.deferred-login`，沒設定時照常啟動並提示「尚未登入，請先執行 login」，在 shell 中以 `login` 依提示輸入（密碼遮蔽、不寫入歷史與硬碟）；也可用環境變數自動登入，不要寫進 `application.properties`：
 
@@ -158,7 +157,7 @@ Spring Shell 的非互動模式（`SPRING_SHELL_INTERACTIVE_ENABLED=false` 加�
 - 會被 SonarQube 掃描：`InterruptedException` 要重設中斷旗標，資源用 try-with-resources 關閉，測試避免 `Thread.sleep`（改用 `FakeIrcServer.awaitLine` / `awaitConnection` 這類有時限的等待）。
 - 測試不得啟動互動 shell：test 的 `application.properties` 設 `spring.shell.interactive.enabled=false`，`bancho-shell/src/test/.../TestShellRunnerConfiguration` 以空的 `springShellApplicationRunner` 取代 shell runner，並把 JLine 換成 dumb terminal（測試 JVM 沒有主控台，偵測系統 terminal 要約 40 秒）。它放在根 package，所以 shell 模組的每個 `@SpringBootTest` 都會掃描到。要經由真正的 parser / registry 測指令時，用 `new ShellTestClient(commandParser, commandRegistry)`。
 - 使用 `ApplicationContextRunner` 載入 `OsuIrcAutoConfiguration` 時，除非就是要測連線，否則要設 `osu.irc.auto-start=false`，否則 `OsuIrcLifecycle` 會在 refresh 時連到真的 cho.ppy.sh。
-- 測試的 OTel service name 是 `bancho-test`，與正式的 `bancho` 區隔。
+- `bancho-observability` 測試的 OTel service name 是 `bancho-test`，與正式的 `bancho` 區隔。
 - 連線行為的測試使用 `irc.FakeIrcServer`（本機假 IRC server），不要連到真的 Bancho；記錄送訊內容用 `irc.RecordingIrcSender`。
 - 程式註解與 log 訊息使用繁體中文。
 - 尚未驗證：Bancho 是否一定回 464、是否回應 client 主動送的 PING、超過 512 bytes 時的行為。官方文件都沒有寫，目前程式是保守處理。
