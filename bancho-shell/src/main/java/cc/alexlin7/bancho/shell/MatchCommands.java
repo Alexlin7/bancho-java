@@ -1,12 +1,13 @@
 package cc.alexlin7.bancho.shell;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -18,10 +19,12 @@ import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.shell.core.command.annotation.Option;
 import org.springframework.stereotype.Component;
 
+import cc.alexlin7.bancho.match.MatchCreation;
 import cc.alexlin7.bancho.match.MatchRoom;
 import cc.alexlin7.bancho.match.GameMode;
 import cc.alexlin7.bancho.match.MatchService;
 import cc.alexlin7.bancho.match.MatchState;
+import cc.alexlin7.bancho.match.PendingMatch;
 import cc.alexlin7.bancho.match.preset.MatchPreset;
 import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 
@@ -73,16 +76,20 @@ public class MatchCommands {
         if (preset != null && template == null) {
             return "找不到範本：" + preset;
         }
-        String name = InputGuard.join(words);
+        String requested = InputGuard.join(words);
         return RoomResolver.guarded(() -> {
-            lastMake.set(matchService.createMatch(name).room().whenComplete((room, error) -> {
+            MatchCreation creation = matchService.createMatch(requested);
+            String name = creation.name();
+            creation.unknown().thenRun(() -> out.println("開房結果未知：" + name + "；若遊戲內沒有這間房，用 drop " + name
+                    + " 釋放名額（之後不能再用這個房名）"));
+            lastMake.set(creation.room().whenComplete((room, error) -> {
                 if (error == null) {
                     session.use(room.matchId());
-                    out.println("房間已建立：" + room.channel() + " " + name);
+                    String late = creation.unknown().isDone() ? "（晚到的回覆）" : "";
+                    out.println("房間已建立" + late + "：" + room.channel() + " " + name);
                     applyPreset(room, preset, template);
-                } else if (unwrap(error) instanceof TimeoutException) {
-                    out.println("開房逾時：" + name);
-                } else {
+                } else if (!(unwrap(error) instanceof CancellationException)) {
+                    // 被 drop 時以 cancel 結束，drop 指令本身已經回覆過
                     out.println("開房失敗：" + name + "（" + unwrap(error).getMessage() + "）");
                 }
             }));
@@ -123,17 +130,35 @@ public class MatchCommands {
         return "目前房間：#mp_" + matchId;
     }
 
-    @Command(name = "rooms", group = GROUP, description = "列出開著的房間")
+    @Command(name = "rooms", group = GROUP, description = "列出開著的房間、建房中與結果未知的請求，以及已用名額")
     public String rooms(CommandContext context) {
         String invalid = InputGuard.check(context, 0);
         if (invalid != null) {
             return invalid;
         }
-        List<MatchRoom> open = matchService.openRooms();
-        if (open.isEmpty()) {
-            return "目前沒有開著的房間";
+        List<String> lines = new ArrayList<>(matchService.openRooms().stream().map(MatchCommands::describe).toList());
+        matchService.pendingMatches().forEach(pending -> lines.add(
+                (pending.status() == PendingMatch.Status.CREATING ? "建房中：" : "結果未知：") + pending.name()));
+        String slots = "名額 " + matchService.usedSlots() + "/" + MatchService.MAX_ROOMS;
+        if (lines.isEmpty()) {
+            return "目前沒有開著的房間（" + slots + "）";
         }
-        return open.stream().map(MatchCommands::describe).collect(Collectors.joining(System.lineSeparator()));
+        lines.add(slots);
+        return String.join(System.lineSeparator(), lines);
+    }
+
+    @Command(name = "drop", group = GROUP,
+            description = "釋放結果未知的開房請求：先確認遊戲內沒有這間房；之後本次執行不能再用這個房名")
+    public String drop(@Arguments List<String> words, CommandContext context) {
+        String invalid = InputGuard.check(context, InputGuard.ANY);
+        if (invalid != null) {
+            return invalid;
+        }
+        String name = InputGuard.join(words).strip();
+        if (name.isEmpty()) {
+            return USAGE + "drop <房名>";
+        }
+        return matchService.drop(name) ? "已釋放：" + name : "找不到結果未知的開房請求：" + name;
     }
 
     @Command(name = "invite", group = GROUP, completionProvider = "userCompletion",

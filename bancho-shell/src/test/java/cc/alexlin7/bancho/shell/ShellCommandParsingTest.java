@@ -96,6 +96,12 @@ class ShellCommandParsingTest {
     }
 
     @Test
+    void dropJoinsAllWordsIntoRoomName() throws Exception {
+        assertThat(run("drop 第一場 練習")).contains("找不到結果未知的開房請求：第一場 練習");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void misspelledOptionIsRejectedInsteadOfIgnored() throws Exception {
         assertThat(run("start --dealy 10 --room 42")).contains("不認得的選項：--dealy");
         assertThat(sender.calls).isEmpty();

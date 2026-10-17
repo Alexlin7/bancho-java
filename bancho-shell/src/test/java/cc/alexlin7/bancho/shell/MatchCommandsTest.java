@@ -1,6 +1,7 @@
 package cc.alexlin7.bancho.shell;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -70,12 +71,70 @@ class MatchCommandsTest {
         assertThat(sender.calls).isEmpty();
     }
 
+    private static final String UNKNOWN_R = "開房結果未知：r；若遊戲內沒有這間房，用 drop r 釋放名額（之後不能再用這個房名）";
+
+    private void makeUntilUnknown(String name) {
+        commands.make(List.of(name), null, null);
+        await().atMost(Duration.ofSeconds(2)).until(() -> printed.stream().anyMatch(line -> line.startsWith("開房結果未知：" + name)));
+    }
+
     @Test
-    void makeTimeoutIsPrinted() throws Exception {
-        commands.make(List.of("r"), null, null);
+    void makeTimeoutPrintsUnknownHint() {
+        makeUntilUnknown("r");
+
+        assertThat(printed).containsExactly(UNKNOWN_R);
+    }
+
+    @Test
+    void lateReplyAfterUnknownStillUsesRoom() throws Exception {
+        makeUntilUnknown("r");
+
+        matchService.onMatchEvent(new MatchCreated(5, "r"));
         awaitLastMake();
 
-        assertThat(printed).contains("開房逾時：r");
+        assertThat(printed).contains("房間已建立（晚到的回覆）：#mp_5 r");
+        assertThat(session.currentRoom()).contains(5L);
+    }
+
+    @Test
+    void droppedRequestDoesNotPrintFailure() throws Exception {
+        makeUntilUnknown("r");
+
+        commands.drop(List.of("r"), null);
+        awaitLastMake();
+
+        assertThat(printed).containsExactly(UNKNOWN_R);
+    }
+
+    @Test
+    void dropReleasesSlot() {
+        makeUntilUnknown("r");
+
+        assertThat(commands.drop(List.of("r"), null)).isEqualTo("已釋放：r");
+        assertThat(commands.drop(List.of("r"), null)).isEqualTo("找不到結果未知的開房請求：r");
+        assertThat(matchService.usedSlots()).isZero();
+        assertThat(commands.make(List.of("r"), null, null))
+                .isEqualTo("錯誤：此房名已 drop，本次執行不能再用，請換一個房名：r");
+    }
+
+    @Test
+    void makeRejectedWhenSlotsFull() {
+        for (long id = 1; id <= 4; id++) {
+            matchService.attach(id);
+        }
+
+        assertThat(commands.make(List.of("r"), null, null)).isEqualTo("錯誤：名額已滿（4/4）");
+    }
+
+    @Test
+    void roomsListsPendingAndSlots() {
+        matchService.attach(1);
+        makeUntilUnknown("r");
+
+        String rooms = commands.rooms(null);
+
+        assertThat(rooms).contains("#mp_1", "結果未知：r");
+        assertThat(rooms.lines().toList().getLast()).isEqualTo("名額 2/4");
     }
 
     @Test
@@ -290,7 +349,7 @@ class MatchCommandsTest {
 
     @Test
     void roomsListsOpenRooms() {
-        assertThat(commands.rooms(null)).isEqualTo("目前沒有開著的房間");
+        assertThat(commands.rooms(null)).isEqualTo("目前沒有開著的房間（名額 0/4）");
 
         matchService.onMatchEvent(new MatchCreated(1, "a"));
 
