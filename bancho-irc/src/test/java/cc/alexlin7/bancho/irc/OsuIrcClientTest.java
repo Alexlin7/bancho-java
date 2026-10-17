@@ -374,4 +374,107 @@ class OsuIrcClientTest {
         }).doesNotThrowAnyException();
         assertThat(server.connectionCount()).isZero();
     }
+
+    // ---------------------------------------------------------------- 延後登入
+
+    private void createDeferredClient(IrcConnectionListener stateListener) {
+        client = new OsuIrcClient(new OsuIrcSettings("127.0.0.1", server.port(), null, null,
+                timing(Duration.ofSeconds(10), Duration.ZERO)), List.of(message -> {
+        }));
+        if (stateListener != null) {
+            client.addConnectionListener(stateListener);
+        }
+    }
+
+    @Test
+    void startWithoutCredentialsFails() throws Exception {
+        createDeferredClient(null);
+
+        assertThatThrownBy(client::start).isInstanceOf(IllegalStateException.class);
+        assertThat(client.state()).isEqualTo(IrcConnectionState.IDLE);
+        assertThat(client.hasCredentials()).isFalse();
+        assertThat(server.awaitConnection(SHORT)).isFalse();
+    }
+
+    @Test
+    void loginConnectsWithGivenCredentials() throws Exception {
+        createDeferredClient(null);
+
+        client.login("test user", "secret");
+
+        assertThat(server.awaitLine("PASS secret", WAIT)).isNotNull();
+        assertThat(server.awaitLine("NICK test_user", WAIT)).isNotNull();
+        assertThat(server.awaitLine(line -> line.startsWith("USER "), WAIT)).isNotNull();
+        server.welcome();
+        awaitState(IrcConnectionState.REGISTERED);
+        assertThat(client.hasCredentials()).isTrue();
+    }
+
+    @Test
+    void notifiesStateChanges() throws Exception {
+        BlockingQueue<IrcConnectionState> states = new LinkedBlockingQueue<>();
+        createDeferredClient(states::add);
+
+        client.login("test user", "secret");
+        assertThat(server.awaitLine(line -> line.startsWith("USER "), WAIT)).isNotNull();
+        server.welcome();
+
+        assertThat(states.poll(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isEqualTo(IrcConnectionState.CONNECTING);
+        assertThat(states.poll(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isEqualTo(IrcConnectionState.REGISTERED);
+
+        server.send(":cho.ppy.sh 464 test_user :Bad authentication token.");
+        assertThat(states.poll(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isEqualTo(IrcConnectionState.AUTH_FAILED);
+    }
+
+    @Test
+    void loginRejectedWhileConnected() throws Exception {
+        createDeferredClient(null);
+        client.login("test user", "secret");
+        assertThat(server.awaitLine(line -> line.startsWith("USER "), WAIT)).isNotNull();
+        server.welcome();
+        awaitState(IrcConnectionState.REGISTERED);
+
+        assertThatThrownBy(() -> client.login("test user", "secret"))
+                .isInstanceOf(IllegalStateException.class).hasMessage("已登入或正在連線");
+    }
+
+    @Test
+    void loginAgainAfterAuthFailureOpensExactlyOneNewConnection() throws Exception {
+        server.onConnect(s -> s.send(":cho.ppy.sh 464 test_user :Bad authentication token."));
+        createDeferredClient(null);
+        client.login("test user", "wrong");
+        assertThat(server.awaitConnection(WAIT)).isTrue();
+        awaitState(IrcConnectionState.AUTH_FAILED);
+
+        server.onConnect(s -> {
+        });
+        client.login("test user", "right");
+
+        assertThat(server.awaitLine("PASS right", WAIT)).isNotNull();
+        assertThat(server.awaitConnection(WAIT)).isTrue();
+        assertThat(server.awaitConnection(SHORT)).isFalse();
+        assertThat(server.connectionCount()).isEqualTo(2);
+    }
+
+    @Test
+    void loginRejectsBlankCredentials() {
+        createDeferredClient(null);
+
+        assertThatThrownBy(() -> client.login("", "x"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("username 不得空白");
+        assertThat(client.state()).isEqualTo(IrcConnectionState.IDLE);
+    }
+
+    /** 狀態在 connection thread 上改變，以有時限的輪詢等待（不用 Thread.sleep）。 */
+    private void awaitState(IrcConnectionState expected) throws InterruptedException {
+        BlockingQueue<IrcConnectionState> reached = new LinkedBlockingQueue<>();
+        client.addConnectionListener(state -> {
+            if (state == expected) {
+                reached.add(state);
+            }
+        });
+        if (client.state() != expected) {
+            assertThat(reached.poll(WAIT.toMillis(), TimeUnit.MILLISECONDS)).isEqualTo(expected);
+        }
+    }
 }

@@ -36,4 +36,19 @@ class OsuIrcSettingsTest {
         assertThat(new OsuIrcSettings(null, 0, "someone", "secret", null).toString())
                 .contains("someone").doesNotContain("secret");
     }
+
+    @Test
+    void allowsDeferredCredentials() {
+        assertThat(new OsuIrcSettings(null, 0, null, null, null).hasCredentials()).isFalse();
+        assertThat(new OsuIrcSettings(null, 0, "someone", "secret", null).hasCredentials()).isTrue();
+    }
+
+    @Test
+    void rejectsOnlyOneMissingCredential() {
+        assertThatIllegalArgumentException().isThrownBy(() -> new OsuIrcSettings(null, 0, "someone", null, null))
+                .withMessage("password 不得空白");
+        // 空字串仍是錯誤，只有兩者都是 null 才代表延後登入
+        assertThatIllegalArgumentException().isThrownBy(() -> new OsuIrcSettings(null, 0, "", "", null))
+                .withMessage("username 不得空白");
+    }
 }
