@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -46,7 +47,8 @@ public class MatchCommands {
     private final RoomResolver rooms;
     private final MatchPresetProperties presets;
     private final SecretPrompt secretPrompt;
-    private volatile CompletableFuture<?> lastMake = CompletableFuture.completedFuture(null);
+    private final AtomicReference<CompletableFuture<?>> lastMake =
+            new AtomicReference<>(CompletableFuture.completedFuture(null));
 
     public MatchCommands(MatchService matchService, ShellSession session, ShellOutput out,
                          MatchPresetProperties presets, SecretPrompt secretPrompt) {
@@ -73,7 +75,7 @@ public class MatchCommands {
         }
         String name = InputGuard.join(words);
         return RoomResolver.guarded(() -> {
-            lastMake = matchService.createMatch(name).whenComplete((room, error) -> {
+            lastMake.set(matchService.createMatch(name).whenComplete((room, error) -> {
                 if (error == null) {
                     session.use(room.matchId());
                     out.println("房間已建立：" + room.channel() + " " + name);
@@ -83,7 +85,7 @@ public class MatchCommands {
                 } else {
                     out.println("開房失敗：" + name + "（" + unwrap(error).getMessage() + "）");
                 }
-            });
+            }));
             return "已送出開房請求：" + name;
         });
     }
@@ -365,7 +367,7 @@ public class MatchCommands {
 
     /** 最近一次 make 的結果處理，供測試等待。 */
     CompletableFuture<?> lastMake() {
-        return lastMake;
+        return lastMake.get();
     }
 
     private static Throwable unwrap(Throwable error) {
