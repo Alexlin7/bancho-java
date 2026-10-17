@@ -5,7 +5,7 @@
     <parent>
         <groupId>cc.alexlin7.bancho</groupId>
         <artifactId>bancho-parent</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>0.1.0</version>
     </parent>
     <artifactId>bancho-irc-spring</artifactId>
     <name>bancho-irc-spring</name>
