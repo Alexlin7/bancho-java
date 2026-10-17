@@ -1,7 +1,7 @@
 # 第二次 shell 實測回饋（必填參數、密碼輸入、新 BanchoBot 樣本、JVM 警告）設計
 
 - 日期：2026-10-17
-- 狀態：設計中
+- 狀態：已實作（自動測試與 jar 驗證完成；遮蔽輸入的實際操作待使用者在真正的終端機實測）
 - 前一份設計：`2026-10-17-shell-refinements-design.md`（本文件只寫差異）
 - 分支：`feature/match-room-phase2`（完成後與階段二一起合回 `main`）
 
@@ -103,10 +103,10 @@ BanchoBot 收到 `!mp mods NFHD` 會回 `Disabled all mods`（看不懂就清空
 
 ## 8. 待驗證事項
 
-| 項目 | 驗證方式 | 結果影響 |
-|---|---|---|
-| 指令執行中呼叫 `readLine(prompt, '*')` | 實作時以真正的終端機手動確認，自動測試用假實作 | 不行就改用 `Terminal` 直接讀字元 |
-| 遮蔽輸入是否寫入歷史 | 讀 JLine `LineReaderImpl` 原始碼並手動確認歷史檔 | 會寫入就暫時 `DISABLE_HISTORY` |
-| `set a b c` 的錯誤訊息 | `ShellTestClient` 實測 | 看不懂就改收 `String` |
-| fat jar 的 `Enable-Native-Access` | `java -jar` 實跑 | 無效就在 CLAUDE.md 的啟動指令加 `--enable-native-access=ALL-UNNAMED` |
-| 其他遊玩模式、`FAILED` 的原文 | 等使用者實測 | 先保留原文字串 |
+| 項目 | 結果 |
+|---|---|
+| 指令執行中呼叫 `readLine(prompt, '*')` | 以 dumb terminal 的單元測試確認可讀取、空白與 EOF 回 empty；真正終端機的操作待使用者實測 |
+| 遮蔽輸入是否寫入歷史 | ✅ 不會：JLine 的 `SimpleMaskingCallback.history()` 回 null，`LineReaderImpl` 只在 historyLine 非空時加入歷史；`JLineSecretPromptTest.secretIsNotAddedToHistory` 釘住 |
+| `set a b c` 的錯誤訊息 | Spring Shell 只拋 `CommandExecutionException: Unable to execute command set`（cause 為 `ConversionFailedException ... for value [a]`），看不懂 → 四個指令改收 `String` 自行解析 |
+| fat jar 的 `Enable-Native-Access` | ✅ 有效：正式 jar 以 `java -jar` 非互動執行沒有 `restricted method` 警告；移除該條目的對照 jar 會出現 JLine `FfmTerminalProvider` 的警告 |
+| 其他遊玩模式、`FAILED` 的原文 | 仍待使用者實測，先保留原文字串 |
