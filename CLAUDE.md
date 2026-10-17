@@ -65,7 +65,7 @@ Spring 事件預設同步在發布者的 thread（IRC dispatcher）上執行，�
 
 ### `match/preset`：房間設定範本
 
-`MatchPreset`（`bancho.match.presets.<名稱>.*`）：`team-mode`、`score-mode`、`size`（三者必須一起設定）、`password`、`mods`、`beatmap`、`mode`（需搭配 `beatmap`）、`referees`、`invite`，都可省略。`mode` 接受 0–3 或模式名稱／別名，啟動時由 `MatchConfiguration` 檢查。`MatchRoom.apply(MatchPreset)` 依 set → password → mods → map → addref → invite 送出，未填的跳過。
+`MatchPreset`（`bancho.match.presets.<名稱>.*`）：`team-mode`、`score-mode`、`size`（三者必須一起設定）、`password`、`mods`、`beatmap`、`mode`（需搭配 `beatmap`）、`referees`、`invite`，都可省略。`mode` 接受 0–3 或模式名稱／別名；`mode` 與 `mods`（含連寫檢查）都在啟動時由 `MatchConfiguration` 檢查，避免開房後才失敗。`MatchRoom.apply(MatchPreset)` 依 set → password → mods → map → addref → invite 送出，未填的跳過。
 
 ```yaml
 bancho:

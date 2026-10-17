@@ -12,13 +12,20 @@ import idv.alexlin7.tw.bancho.match.preset.MatchPresetProperties;
 @EnableConfigurationProperties({MatchProperties.class, MatchPresetProperties.class})
 public class MatchConfiguration {
 
-    /** 在 shell 能開房前檢查全部模式，避免開房後才發現範本錯誤。 */
+    /** 在 shell 能開房前檢查全部範本的模式與 mod，避免開房後才發現範本錯誤、整份範本都送不出去。 */
     @Bean
-    public InitializingBean presetModeValidation(MatchPresetProperties presets) {
+    public InitializingBean presetValidation(MatchPresetProperties presets) {
         return () -> presets.presets().forEach((name, preset) -> {
             if (preset.mode() != null && GameMode.parse(preset.mode()).isEmpty()) {
                 throw new IllegalStateException("範本 " + name + " 的 mode 無效：" + preset.mode()
                         + "（可用 osu、taiko、catch、mania 或 0–3）");
+            }
+            if (!preset.mods().isEmpty()) {
+                try {
+                    MatchRoom.modsCommand(preset.mods().toArray(String[]::new));
+                } catch (IllegalArgumentException e) {
+                    throw new IllegalStateException("範本 " + name + " 的 mods 無效：" + e.getMessage(), e);
+                }
             }
         });
     }
