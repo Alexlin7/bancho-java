@@ -58,6 +58,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     private final List<IrcConnectionListener> connectionListeners = new CopyOnWriteArrayList<>();
     private final List<IrcTrafficListener> trafficListeners = new CopyOnWriteArrayList<>();
     /** 套用在出站行的 log 與 {@link IrcTrafficListener#sent}，不影響實際送出的內容。 */
+    @SuppressWarnings("java:S3077")
     private volatile UnaryOperator<String> outboundRedactor = UnaryOperator.identity();
     private final AtomicReference<IrcConnectionState> state = new AtomicReference<>(IrcConnectionState.IDLE);
 
@@ -65,6 +66,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     private boolean started;
     private volatile boolean closed;
     /** 來自 settings 或 {@link #login}；connection thread 每次登入時讀取。 */
+    @SuppressWarnings("java:S3077")
     private volatile Credentials credentials;
 
     /**
