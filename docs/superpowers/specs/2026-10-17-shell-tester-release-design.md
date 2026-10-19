@@ -2,7 +2,7 @@
 
 - 日期：2026-10-17
 - 狀態：設計待使用者檢閱
-- 相關文件：`C:\Users\alitw\Downloads\2026-10-15-osu-bot-lifecycle-permissions-design.html`（Discord 版的帳號、房間生命週期與權限設計，以下簡稱「生命週期設計」）
+- 相關文件：[2026-10-15-osu-bot-lifecycle-permissions-design.md](2026-10-15-osu-bot-lifecycle-permissions-design.md)（Discord 版的帳號、房間生命週期與權限設計，以下簡稱「生命週期設計」）
 
 ## 1. 目的
 
