@@ -21,6 +21,11 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>bancho-irc</artifactId>
         </dependency>
+        <!-- 自己也用 @Slf4j 記 log，不依賴 irc 遞移帶入 -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>${project.groupId}</groupId>

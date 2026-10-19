@@ -30,11 +30,13 @@ pwsh bancho-shell/src/dist/package-windows.ps1 -Version X.Y.Z -Jar bancho-shell/
 |---|---|
 | `bancho-irc` | `irc` 套件，純 Java，compile 依賴只有 `slf4j-api`（不可加入 Spring 或 log 後端）；另外產生 test-jar（`FakeIrcServer`、`RecordingIrcSender`），其他模組以 `<type>test-jar</type>` 依賴。不能拆成獨立模組：它依賴 irc，而 irc 自己的測試也要用它，會形成循環 |
 | `bancho-irc-spring` | `irc.spring` 套件：`osu.irc.*` 綁定與 auto-configuration；依賴 `spring-boot-autoconfigure` 而不是 starter |
-| `bancho-match` | `match` 套件與 `banchobot/` 樣本，純 Java，compile 依賴只有 `bancho-irc`（不可加入 Spring） |
+| `bancho-match` | `match` 套件與 `banchobot/` 樣本，純 Java，compile 依賴只有 `bancho-irc` 與 `slf4j-api`（不可加入 Spring） |
 | `bancho-match-spring` | `match.spring` 套件：`bancho.match.*` 綁定、範本檢查與 auto-configuration，把房間事件轉成 Spring 事件 |
 | `bancho-observability` | `observability` 套件、`logback-spring.xml`、`application-otel.properties`；`@SpringBootTest` 由 test 的 `ObservabilityTestApplication` 啟動。目前沒有前端依賴它（shell 已移除，避免把 OTLP 與 protobuf 帶進給測試者的版本），留給日後需要匯出的前端（例如 Discord） |
 | `bancho-shell` | 唯一可執行的模組：`BanchoApplication`、`shell` 套件、`application.properties` |
 | `bancho-discord` | 尚未實作 |
+
+程式碼直接 import 的內部模組要在自己的 pom 明確宣告，不靠遞移帶入（`dependency:analyze` 的 used undeclared）；純 Java 模組（irc、match）也要自己宣告 `slf4j-api`。Spring 模組的 `slf4j-api` 與 Spring 本身的 jar（`spring-context`、`spring-boot` 等）視為 Boot 的一部分，不逐一宣告。前端的 `*-spring` 模組只在執行期作用，analyze 報 unused declared 是誤報。
 
 `spring-boot-maven-plugin` 只能宣告在可執行的模組（函式庫被 repackage 後就無法被依賴）；根 pom 設 `spring-boot.run.skip=true`，可執行模組改成 `false`，`-am` 時其他模組才不會被 `spring-boot:run`。package 名稱維持 `cc.alexlin7.bancho.<feature>`，`BanchoApplication` 的元件掃描會涵蓋其他模組的 bean；同一個 package 不要分散在多個模組。
 

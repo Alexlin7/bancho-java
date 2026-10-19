@@ -22,7 +22,12 @@
             <groupId>${project.groupId}</groupId>
             <artifactId>bancho-match</artifactId>
         </dependency>
-        <!-- 房間事件需要 IrcSender；大多數使用端也是由它建立 client -->
+        <!-- MatchService 需要 IrcSender，遮蔽密碼需要 OsuIrcClient -->
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bancho-irc</artifactId>
+        </dependency>
+        <!-- 排在 OsuIrcAutoConfiguration 之後；大多數使用端也是由它建立 client -->
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>bancho-irc-spring</artifactId>

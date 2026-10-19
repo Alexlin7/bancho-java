@@ -17,7 +17,13 @@
         <spring-boot.run.skip>false</spring-boot.run.skip>
     </properties>
 
+    <!-- 程式碼直接用到的本體與提供 auto-configuration 的 *-spring 模組都明確宣告，不依賴遞移 -->
     <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>bancho-irc</artifactId>
+        </dependency>
+        <!-- 只在執行期以 auto-configuration 建立 client，dependency:analyze 會誤報為未使用 -->
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>bancho-irc-spring</artifactId>
