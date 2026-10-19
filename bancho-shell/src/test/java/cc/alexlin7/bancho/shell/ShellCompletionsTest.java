@@ -95,18 +95,28 @@ class ShellCompletionsTest {
     void mapCompletionOffersModeNamesForSecondArgument() {
         var provider = completions.mapCompletion(matchService);
         var proposals = provider.apply(typing("map", "2453358", ""));
-        assertThat(proposals).extracting(CompletionProposal::value).containsExactly("osu", "taiko", "catch", "mania");
-        assertThat(proposals).extracting(CompletionProposal::description).containsExactly("0", "1", "2", "3");
+        assertThat(proposals).extracting(CompletionProposal::value).containsExactly("osu", "std", "taiko", "catch", "fruits", "ctb", "mania");
+        assertThat(proposals).extracting(CompletionProposal::description).containsExactly("0", "0", "1", "2", "2", "2", "3");
         assertThat(values(provider, typing("map", "2453358", "MA"))).containsExactly("mania");
+    }
+
+    @Test
+    void mapCompletionOffersAcceptedAliasesWithModeIds() {
+        var provider = completions.mapCompletion(matchService);
+        assertThat(values(provider, typing("map", "2453358", "ST"))).containsExactly("std");
+        assertThat(values(provider, typing("map", "2453358", "fr"))).containsExactly("fruits");
+        assertThat(values(provider, typing("map", "--room", "42", "2453358", "ct"))).containsExactly("ctb");
+        assertThat(provider.apply(typing("map", "2453358", "ct")))
+                .extracting(CompletionProposal::description).containsExactly("2");
     }
 
     @Test
     void mapCompletionCountsOnlyPositionalWords() {
         var provider = completions.mapCompletion(matchService);
         assertThat(values(provider, typing("map", "--room", "42", "2453358", "")))
-                .containsExactly("osu", "taiko", "catch", "mania");
+                .containsExactly("osu", "std", "taiko", "catch", "fruits", "ctb", "mania");
         assertThat(values(provider, typing("map", "--room=42", "2453358", "")))
-                .containsExactly("osu", "taiko", "catch", "mania");
+                .containsExactly("osu", "std", "taiko", "catch", "fruits", "ctb", "mania");
         assertThat(values(provider, typing("map", "--room", "42", ""))).isEmpty();
     }
 
@@ -123,11 +133,46 @@ class ShellCompletionsTest {
     }
 
     @Test
+    void setCompletesTeamAndScoreAliasesAtTheirPositions() {
+        var provider = completions.setCompletion(matchService);
+        assertThat(values(provider, typing("set", ""))).containsExactly(
+                "h2h", "headtohead", "tag", "tagteam", "tagcoop", "teamvs", "tagvs", "tagteamvs");
+        assertThat(values(provider, typing("set", "teamvs", ""))).containsExactly(
+                "score", "scorev1", "v1", "accuracy", "acc", "combo", "scorev2", "v2");
+        assertThat(values(provider, typing("set", "TAG"))).containsExactly("tag", "tagteam", "tagcoop", "tagvs", "tagteamvs");
+        assertThat(values(provider, typing("set", "teamvs", "V"))).containsExactly("v1", "v2");
+        assertThat(values(provider, typing("set", "teamvs", "v2", ""))).isEmpty();
+        assertThat(provider.apply(typing("set", "teamvs", "v2")))
+                .extracting(CompletionProposal::description).containsExactly("3");
+    }
+
+    @Test
+    void setCompletionSkipsRoomOptionsAndCompletesTheirValues() {
+        var provider = completions.setCompletion(matchService);
+        assertThat(values(provider, typing("set", "--room", "42", "teamvs", "a")))
+                .containsExactly("accuracy", "acc");
+        assertThat(values(provider, typing("set", "--room=42", "te"))).containsExactly("teamvs");
+        matchService.attach(7);
+        assertThat(values(provider, typingRoomOption("set", "teamvs", "v2", "4", "--room", "")))
+                .containsExactly("7");
+    }
+
+    @Test
+    void hostCompletionPreservesUnicodeNamesAndSupportsRoomOption() {
+        knownUsers.onMatchEvent(new PlayerJoined(7, "- Ｓ Ｈ -", 1));
+        var provider = completions.userCompletion(knownUsers, matchService);
+        assertThat(values(provider, typing("host", ""))).containsExactly("- Ｓ Ｈ -");
+        matchService.attach(7);
+        assertThat(values(provider, typingRoomOption("host", "A", "--room", ""))).containsExactly("7");
+    }
+
+    @Test
     void mpCompletesOnlyFirstPositionalArgument() {
         var provider = completions.mpCompletion(matchService);
-        assertThat(values(provider, typing("mp", "h"))).containsExactly("host");
+        assertThat(values(provider, typing("mp", "k"))).containsExactly("kick");
+        assertThat(values(provider, typing("mp", "h"))).isEmpty();
         assertThat(values(provider, typing("mp", "host", ""))).isEmpty();
-        assertThat(values(provider, typing("mp", "--room", "42", "h"))).containsExactly("host");
+        assertThat(values(provider, typing("mp", "--room", "42", "k"))).containsExactly("kick");
         matchService.attach(7);
         assertThat(values(provider, typingRoomOption("mp", "host", "--room", ""))).containsExactly("7");
     }

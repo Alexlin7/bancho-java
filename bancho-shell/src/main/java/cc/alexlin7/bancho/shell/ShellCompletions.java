@@ -1,5 +1,6 @@
 package cc.alexlin7.bancho.shell;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -12,10 +13,13 @@ import org.springframework.shell.core.command.completion.CompletionContext;
 import org.springframework.shell.core.command.completion.CompletionProposal;
 import org.springframework.shell.core.command.completion.CompletionProvider;
 
+import cc.alexlin7.bancho.match.BanchoMode;
 import cc.alexlin7.bancho.match.GameMode;
 import cc.alexlin7.bancho.match.MatchRoom;
 import cc.alexlin7.bancho.match.MatchService;
 import cc.alexlin7.bancho.match.ModNames;
+import cc.alexlin7.bancho.match.ScoreMode;
+import cc.alexlin7.bancho.match.TeamMode;
 import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 
 /**
@@ -26,7 +30,7 @@ import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 class ShellCompletions {
 
     static final List<String> MP_SUBCOMMANDS = List.of(
-            "aborttimer", "clearhost", "host", "kick", "listrefs", "lock", "move", "removeref", "size", "team",
+            "aborttimer", "clearhost", "kick", "listrefs", "lock", "move", "removeref", "size", "team",
             "unlock");
 
     private static final Set<String> OPTIONS_WITH_VALUE = Set.of(
@@ -67,7 +71,7 @@ class ShellCompletions {
     }
 
     /**
-     * invite、addref：使用者名稱。
+     * invite、host、addref：使用者名稱。
      */
     @Bean
     CompletionProvider userCompletion(KnownUsers knownUsers, MatchService matchService) {
@@ -84,11 +88,25 @@ class ShellCompletions {
     @Bean
     CompletionProvider mapCompletion(MatchService matchService) {
         return withRoomOption(matchService, context -> positionalIndex(context) == 1
-                ? filter(List.of(GameMode.values()).stream()
-                .map(mode -> new CompletionProposal(mode.name().toLowerCase(Locale.ROOT))
-                        .description(Integer.toString(mode.id())))
-                .toList(), context)
+                ? filter(modeProposals(GameMode.values()), context)
                 : List.of());
+    }
+
+    @Bean
+    CompletionProvider setCompletion(MatchService matchService) {
+        return withRoomOption(matchService, context -> {
+            List<CompletionProposal> proposals = switch (positionalIndex(context)) {
+                case 0 -> modeProposals(TeamMode.values());
+                case 1 -> modeProposals(ScoreMode.values());
+                default -> List.of();
+            };
+            return filter(proposals, context);
+        });
+    }
+
+    private static List<CompletionProposal> modeProposals(BanchoMode[] modes) {
+        return Arrays.stream(modes).flatMap(mode -> mode.aliases().stream()
+                .map(alias -> new CompletionProposal(alias).description(Integer.toString(mode.id())))).toList();
     }
 
     @Bean

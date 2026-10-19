@@ -25,6 +25,8 @@ import cc.alexlin7.bancho.match.GameMode;
 import cc.alexlin7.bancho.match.MatchService;
 import cc.alexlin7.bancho.match.MatchState;
 import cc.alexlin7.bancho.match.PendingMatch;
+import cc.alexlin7.bancho.match.ScoreMode;
+import cc.alexlin7.bancho.match.TeamMode;
 import cc.alexlin7.bancho.match.preset.MatchPreset;
 import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 
@@ -41,7 +43,8 @@ public class MatchCommands {
     private static final String ROOM_OPTION = "房號（預設為目前房間）";
     private static final String SENT = "已送出：";
     private static final String USAGE = "錯誤：用法：";
-    private static final String SET_USAGE = USAGE + "set <team mode> <score mode> <人數> [--room <房號>]";
+    private static final String SET_USAGE = USAGE + "set <隊伍模式：h2h/tag/teamvs/tagvs 或 0–3> "
+            + "<計分模式：score/accuracy/combo/scorev2 或 0–3> <人數> [--room <房號>]；例如 set teamvs v2 4";
     private static final String MAP_USAGE = USAGE + "map <beatmap id> [模式] [--room <房號>]";
 
     private final MatchService matchService;
@@ -175,7 +178,7 @@ public class MatchCommands {
     }
 
     @Command(name = "invite", group = GROUP, completionProvider = "userCompletion",
-            description = "邀請玩家（名稱可含空白）；名稱以 - 開頭時見 invite --help", help = InputGuard.INVITE_ESCAPE_HELP)
+            description = "邀請玩家（名稱、#ID 或個人頁網址）；名稱以 - 開頭時見 invite --help", help = InputGuard.INVITE_ESCAPE_HELP)
     public String invite(@Arguments List<String> words,
                          @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                          CommandContext context) {
@@ -184,10 +187,19 @@ public class MatchCommands {
             return invalid;
         }
         String username = InputGuard.join(words);
-        return guardedOnRoom(context, InputGuard.ANY, room, r -> {
-            r.invite(username);
-            return SENT + "!mp invite " + username;
-        });
+        return guardedOnRoom(context, InputGuard.ANY, room, r -> SENT + r.invite(username));
+    }
+
+    @Command(name = "host", group = GROUP, completionProvider = "userCompletion",
+            description = "指定房主（名稱、#ID 或個人頁網址）；名稱以 - 開頭時見 host --help", help = InputGuard.HOST_HELP)
+    public String host(@Arguments List<String> words,
+                       @Option(longName = ROOM, description = ROOM_OPTION) Long room,
+                       CommandContext context) {
+        String invalid = InputGuard.rejectRoomAfterDoubleDash(words, "host");
+        if (invalid != null) {
+            return invalid;
+        }
+        return guardedOnRoom(context, InputGuard.ANY, room, r -> SENT + r.host(InputGuard.join(words)));
     }
 
     @Command(name = "map", group = GROUP, completionProvider = "mapCompletion",
@@ -220,22 +232,23 @@ public class MatchCommands {
         });
     }
 
-    @Command(name = "set", group = GROUP, completionProvider = "roomOptionCompletion",
-            description = "設定 team mode（0–3）、score mode（0–3）、人數（1–16）")
+    @Command(name = "set", group = GROUP, completionProvider = "setCompletion",
+            description = "設定隊伍模式、計分模式、人數；支援名稱或 0–3，詳見 set --help", help = InputGuard.SET_HELP)
     public String set(@Argument(index = 0, description = "team mode") String teamModeText,
                       @Argument(index = 1, description = "score mode") String scoreModeText,
                       @Argument(index = 2, description = "人數") String sizeText,
                       @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                       CommandContext context) {
-        Integer teamMode = parseInt(teamModeText);
-        Integer scoreMode = parseInt(scoreModeText);
         Integer size = parseInt(sizeText);
-        if (teamMode == null || scoreMode == null || size == null) {
+        if (teamModeText == null || teamModeText.isBlank() || scoreModeText == null || scoreModeText.isBlank() || size == null) {
             return guardedUsage(context, 3, SET_USAGE);
         }
         return guardedOnRoom(context, 3, room, r -> {
-            r.set(teamMode, scoreMode, size);
-            return SENT + "!mp set " + teamMode + " " + scoreMode + " " + size;
+            TeamMode teamMode = TeamMode.parse(teamModeText).orElseThrow(() -> new IllegalArgumentException(
+                    "不認得的隊伍模式：" + teamModeText + "（可用 h2h、tag、teamvs、tagvs 或 0–3）"));
+            ScoreMode scoreMode = ScoreMode.parse(scoreModeText).orElseThrow(() -> new IllegalArgumentException(
+                    "不認得的計分模式：" + scoreModeText + "（可用 score、accuracy、combo、scorev2 或 0–3）"));
+            return SENT + r.set(teamMode.id(), scoreMode.id(), size);
         });
     }
 
@@ -325,7 +338,7 @@ public class MatchCommands {
     }
 
     @Command(name = "addref", group = GROUP, completionProvider = "userCompletion",
-            description = "加入裁判；名稱以 - 開頭時見 addref --help", help = InputGuard.ESCAPE_HELP)
+            description = "加入裁判（名稱、#ID 或個人頁網址）；名稱以 - 開頭時見 addref --help", help = InputGuard.ESCAPE_HELP)
     public String addref(@Arguments List<String> usernames,
                          @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                          CommandContext context) {
@@ -333,10 +346,7 @@ public class MatchCommands {
         if (invalid != null) {
             return invalid;
         }
-        return guardedOnRoom(context, InputGuard.ANY, room, r -> {
-            r.addRef(usernames.toArray(String[]::new));
-            return SENT + "!mp addref " + String.join(" ", usernames);
-        });
+        return guardedOnRoom(context, InputGuard.ANY, room, r -> SENT + r.addRef(usernames.toArray(String[]::new)));
     }
 
     /*
@@ -374,7 +384,7 @@ public class MatchCommands {
     }
 
     @Command(name = "mp", group = GROUP, completionProvider = "mpCompletion",
-            description = "轉送任意 !mp 指令到房間（例如 mp host 玩家）；以 - 開頭的字請用雙引號包起來")
+            description = "轉送任意 !mp 指令到房間（例如 mp lock）；已有專用指令時優先使用專用指令")
     public String mp(@Arguments List<String> words,
                      @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                      CommandContext context) {
@@ -387,7 +397,7 @@ public class MatchCommands {
         }
         String arguments = InputGuard.join(words);
         if (arguments.isEmpty()) {
-            return "錯誤：請輸入 !mp 之後的指令，例如 mp host Alexlin86";
+            return "錯誤：請輸入 !mp 之後的指令，例如 mp lock；指定房主請用 host";
         }
         String subcommand = arguments.split("\\s+", 2)[0];
         if ("make".equalsIgnoreCase(subcommand) || "makeprivate".equalsIgnoreCase(subcommand)) {

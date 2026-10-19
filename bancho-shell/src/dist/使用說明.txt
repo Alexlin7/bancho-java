@@ -29,10 +29,39 @@ bancho-shell 測試版使用說明
   login                       登入
   make 練習房                 開房（房名可以有空白），成功後自動切到這間房
   invite 玩家名稱             邀請玩家
+  invite #2548278              用玩家 ID 邀請（ID 前面要有 #）
+  host #2548278                把房主交給這位玩家
+  set teamvs v2 4              紅藍隊對抗、ScoreV2、4 人
   map 1502772                 換圖（beatmap id）
   mods HD HR                  設定 mod
   start 10                    10 秒後開始
   close                       關房
+
+玩家名稱與 ID：
+  invite 一次邀請一位玩家，多個 #ID 或網址請分別執行；含空白的完整名稱仍是同一位玩家。
+  invite、host、addref 接受玩家名稱、#ID，或個人頁網址（https://osu.ppy.sh/users/2548278）。
+  網址可省略 https://，也可帶 /osu、/taiko、/fruits、/mania，例如 osu.ppy.sh/users/2548278/fruits。
+  /users/Alexlin86 這種名稱型網址不支援；請直接輸入玩家名稱，或使用含數字 ID 的個人頁網址。
+  addref 接受多個目標，目標之間以空白分隔；含空白的名字請改用 #ID 或網址，避免被拆成不同玩家。
+  全形字與半形字不會互換；名字難以辨識時，直接貼個人頁網址最方便。
+  只有明確寫 #ID 或網址才按 ID 處理；直接輸入數字會被視為玩家名稱。
+  名稱以 - 開頭時用雙引號，例如 invite "- Ｓ Ｈ -"，或 host "- Ｓ Ｈ -" --room 42。
+  在目前房間也能用 host -- -SH-；-- 後面不能再放 --room。
+
+set <隊伍模式> <計分模式> <人數 1–16>（不分大小寫，Tab 可補全）：
+  隊伍 0：h2h / headtohead             個人混戰
+  隊伍 1：tag / tagteam / tagcoop      輪流擊打
+  隊伍 2：teamvs                       紅藍隊對抗
+  隊伍 3：tagvs / tagteamvs            隊伍輪流對抗
+  計分 0：score / scorev1 / v1
+  計分 1：accuracy / acc
+  計分 2：combo
+  計分 3：scorev2 / v2
+  例如 set teamvs v2 4 等同原本的 set 2 3 4；數字用法仍可使用。
+  catch、osu、taiko、mania 是遊玩模式，請用 map <圖號> catch 等方式指定。
+  map 的模式 Tab 補全也提供 std、fruits、ctb 等別名。
+  設定範本的 team-mode、score-mode 也接受相同別名或數字，例如 team-mode: teamvs、score-mode: v2。
+  範本中的設定範圍、mods、遊玩模式、referees、invite 都會在啟動時檢查；錯誤訊息會指出範本名稱與欄位。
 
 其他常用指令：
   rooms     列出開著的房間、還在等回覆的開房請求，以及已用名額（每個帳號最多 4 間）

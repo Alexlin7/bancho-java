@@ -5,12 +5,12 @@ import java.util.List;
 /**
  * 房間設定範本（{@code bancho.match.presets.<名稱>.*}），所有欄位皆可省略。
  *
- * @param teamMode  !mp set 的 team mode（0–3），與 scoreMode、size 必須一起設定
- * @param scoreMode !mp set 的 score mode（0–3）
+ * @param teamMode  !mp set 的 team mode（0–3 或 TeamMode 別名），與 scoreMode、size 必須一起設定
+ * @param scoreMode !mp set 的 score mode（0–3 或 ScoreMode 別名）
  * @param size      人數（1–16）
  * @param mode      遊玩模式（數字或名稱），必須搭配 beatmap；由 match 層驗證值
  */
-public record MatchPreset(Integer teamMode, Integer scoreMode, Integer size, String password,
+public record MatchPreset(String teamMode, String scoreMode, Integer size, String password,
                           List<String> mods, Long beatmap, List<String> referees, List<String> invite, String mode) {
 
     public MatchPreset {

@@ -1,12 +1,10 @@
 package cc.alexlin7.bancho.match;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 /** BanchoBot 的遊玩模式編號與 shell／範本可接受的名稱。 */
-public enum GameMode {
+public enum GameMode implements BanchoMode {
     OSU(0, "osu", "std"),
     TAIKO(1, "taiko"),
     CATCH(2, "catch", "fruits", "ctb"),
@@ -24,13 +22,11 @@ public enum GameMode {
         return id;
     }
 
+    public List<String> aliases() {
+        return aliases;
+    }
+
     public static Optional<GameMode> parse(String text) {
-        if (text == null) {
-            return Optional.empty();
-        }
-        String normalized = text.strip().toLowerCase(Locale.ROOT);
-        return Arrays.stream(values())
-                .filter(mode -> Integer.toString(mode.id).equals(normalized) || mode.aliases.contains(normalized))
-                .findFirst();
+        return BanchoMode.parse(text, values());
     }
 }

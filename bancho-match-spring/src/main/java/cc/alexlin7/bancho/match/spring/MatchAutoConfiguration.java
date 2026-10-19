@@ -29,7 +29,7 @@ import cc.alexlin7.bancho.match.event.MatchEvent;
 @EnableConfigurationProperties({MatchProperties.class, MatchPresetProperties.class})
 public class MatchAutoConfiguration {
 
-    /** 在前端能開房前檢查全部範本的模式與 mod，避免開房後才發現範本錯誤、整份範本都送不出去。 */
+    /** 在前端能開房前檢查全部範本的設定範圍、模式、mod、裁判與邀請目標。 */
     @Bean
     InitializingBean matchPresetValidation(MatchPresetProperties presets) {
         return () -> presets.presets().forEach(MatchRoom::validatePreset);

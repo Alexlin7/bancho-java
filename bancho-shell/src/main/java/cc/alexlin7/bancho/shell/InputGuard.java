@@ -21,6 +21,9 @@ final class InputGuard {
             + "或緊接在原指令後面加 --，例如 -- -SH-；-- 之後不能再加選項）";
 
     static final String ESCAPE_HELP = """
+            addref 接受多位裁判：名稱、#ID 或個人頁網址，目標之間以空白分隔。
+              addref #2548278 osu.ppy.sh/users/42/fruits
+            含空白的玩家名稱請改用 #ID 或個人頁網址，避免被當成不同裁判。
             名稱以 - 開頭（例如 -SH-）會被當成選項，需要跳脫：
               用雙引號包起來：addref "-SH-"
               或緊接在指令後面加 --：addref -- -SH-（-- 之後的字全部當成名稱，不能再加 --room 或 --room=…）
@@ -30,12 +33,42 @@ final class InputGuard {
             """;
 
     static final String INVITE_ESCAPE_HELP = """
+            玩家目標可用完整名稱、#ID（例如 #2548278）或 https://osu.ppy.sh/users/2548278。
+            一次只能邀請一位玩家；多個 #ID 或網址請分別執行 invite，含空白的完整名稱仍視為同一位玩家。
+            網址可省略 https://，也可帶 /osu、/taiko、/fruits、/mania；名稱型網址請改用數字 ID 或直接輸入名稱。
+            全形字保留原樣；無法辨識名字時可直接貼個人頁網址。純數字視為名稱，ID 請加 #。
             名稱以 - 開頭（例如 -SH-）會被當成選項，需要跳脫：
               用雙引號包起來：invite "-SH-"
               或緊接在指令後面加 --：invite -- -SH-（-- 之後的字全部當成名稱，不能再加 --room 或 --room=…）
               要指定房間時用雙引號：invite "-SH-" --room 42
               單引號沒有作用：'-SH-' 會連引號一起送出
             看到「Option '-SH-' requires a value」就是這個原因。
+            """;
+
+    static final String HOST_HELP = """
+            指定房主：host <名稱|#ID|個人頁網址> [--room <房號>]
+            網址可省略 https://，也可帶 /osu、/taiko、/fruits、/mania；名稱型網址請改用數字 ID 或直接輸入名稱。
+              host #2548278
+              host https://osu.ppy.sh/users/2548278
+              host "- Ｓ Ｈ -" --room 42
+              host -- -SH-（目前房間；-- 之後不能再加 --room）
+            名稱中的全形字保留原樣；純數字視為名稱，ID 請加 #。
+            以 - 開頭的名稱請用雙引號，或緊接在 host 後面加 --；單引號沒有作用。
+            """;
+
+    static final String SET_HELP = """
+            set <隊伍模式> <計分模式> <人數 1–16> [--room <房號>]
+            模式不分大小寫，也接受原本的數字 0–3：
+              隊伍 0：h2h / headtohead（個人混戰）
+              隊伍 1：tag / tagteam / tagcoop（輪流擊打）
+              隊伍 2：teamvs（紅藍隊對抗）
+              隊伍 3：tagvs / tagteamvs（隊伍輪流對抗）
+              計分 0：score / scorev1 / v1
+              計分 1：accuracy / acc
+              計分 2：combo
+              計分 3：scorev2 / v2
+            例如 set teamvs v2 4 等同 set 2 3 4。
+            catch、osu、taiko、mania 是遊玩模式，請用 map <圖號> catch 設定。
             """;
 
     static final String MSG_ESCAPE_HELP = """

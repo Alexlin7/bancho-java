@@ -34,7 +34,7 @@ class MatchCommandsTest {
     private IrcConnectionState connection = IrcConnectionState.REGISTERED;
     private final MatchCommands commands = new MatchCommands(matchService, session, printed::add,
             new MatchPresetProperties(Map.of("practice",
-                    new MatchPreset(0, 3, 2, null, List.of("HD"), null, null, null, null))),
+                    new MatchPreset("0", "3", 2, null, List.of("HD"), null, null, null, null))),
             prompt -> {
                 prompts.add(prompt);
                 return typed;
@@ -58,6 +58,7 @@ class MatchCommandsTest {
 
         assertThat(commands.attach("43", null)).isEqualTo("錯誤：請先 login");
         assertThat(commands.invite(List.of("A"), null, null)).isEqualTo("錯誤：請先 login");
+        assertThat(commands.host(List.of("#2548278"), null, null)).isEqualTo("錯誤：請先 login");
         assertThat(commands.close(null, null)).isEqualTo("錯誤：請先 login");
         assertThat(commands.mp(List.of("host", "A"), null, null)).isEqualTo("錯誤：請先 login");
         assertThat(commands.password(List.of(), false, null, null)).isEqualTo("錯誤：請先 login");
@@ -227,6 +228,18 @@ class MatchCommandsTest {
     }
 
     @Test
+    void hostRequiresAnOpenRoomAndValidTarget() {
+        assertThat(commands.host(List.of("A"), null, null)).isEqualTo(NO_ROOM);
+        assertThat(commands.host(List.of("A"), 999L, null)).isEqualTo("找不到房間：999");
+        matchService.attach(42);
+        sender.calls.clear();
+        assertThat(commands.host(List.of(), 42L, null)).startsWith("錯誤：");
+        connection = IrcConnectionState.CONNECTING;
+        assertThat(commands.host(List.of("A"), 42L, null)).contains("正在連線");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void startAndTimer() {
         commands.attach("42", null);
 
@@ -262,7 +275,8 @@ class MatchCommandsTest {
     void missingRequiredArgumentsShowUsage() {
         matchService.attach(42);
         sender.calls.clear();
-        String setUsage = "錯誤：用法：set <team mode> <score mode> <人數> [--room <房號>]";
+        String setUsage = "錯誤：用法：set <隊伍模式：h2h/tag/teamvs/tagvs 或 0–3> "
+                + "<計分模式：score/accuracy/combo/scorev2 或 0–3> <人數> [--room <房號>]；例如 set teamvs v2 4";
         assertThat(commands.set(null, null, null, 42L, null)).isEqualTo(setUsage);
         assertThat(commands.set("2", null, null, 42L, null)).isEqualTo(setUsage);
         assertThat(commands.set("0", "3", null, 42L, null)).isEqualTo(setUsage);
@@ -302,7 +316,7 @@ class MatchCommandsTest {
     void mpRejectsMissingArgumentsAndRoomCreation() {
         matchService.attach(42);
         sender.calls.clear();
-        assertThat(commands.mp(List.of(), 42L, null)).isEqualTo("錯誤：請輸入 !mp 之後的指令，例如 mp host Alexlin86");
+        assertThat(commands.mp(List.of(), 42L, null)).contains("例如 mp lock", "指定房主請用 host");
         for (String subcommand : List.of("make", "MAKE", "MakePrivate")) {
             assertThat(commands.mp(List.of(subcommand, "x"), 42L, null)).isEqualTo("錯誤：開房請用 make 指令");
         }

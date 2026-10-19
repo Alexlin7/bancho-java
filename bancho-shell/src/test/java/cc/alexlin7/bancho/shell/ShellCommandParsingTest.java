@@ -128,6 +128,127 @@ class ShellCommandParsingTest {
     }
 
     @Test
+    void inviteExplainsThatExplicitTargetsMustBeInvitedOneAtATime() throws Exception {
+        for (String command : List.of("invite", "host")) {
+            for (String targets : List.of("#1 #2", "#1 Alexlin86", "osu.ppy.sh/users/1 #2", "Alexlin86 #2")) {
+                assertThat(run(command + " " + targets + " --room 42"))
+                        .contains("一次只能指定一位玩家").doesNotContain("ID 必須是正整數");
+            }
+        }
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void inviteAcceptsProfileLinksAndExplicitIds() throws Exception {
+        assertThat(run("invite https://osu.ppy.sh/users/2548278 --room 42"))
+                .isEqualTo("已送出：!mp invite #2548278");
+        run("invite #2548278 --room 42");
+        run("invite 2548278 --room 42");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp invite #2548278",
+                "msg #mp_42 !mp invite #2548278", "msg #mp_42 !mp invite 2548278");
+    }
+
+    @Test
+    void invitePreservesFullWidthCharacters() throws Exception {
+        run("invite \"- Ｓ Ｈ -\" --room 42");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp invite - Ｓ Ｈ -");
+    }
+
+    @Test
+    void hostAcceptsNamesIdsAndProfiles() throws Exception {
+        assertThat(run("host \"- Ｓ Ｈ -\" --room 42")).isEqualTo("已送出：!mp host - Ｓ Ｈ -");
+        run("host #2548278 --room 42");
+        run("host https://osu.ppy.sh/users/2548278 --room 42");
+        session.use(42);
+        run("host -- -SH-");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp host - Ｓ Ｈ -",
+                "msg #mp_42 !mp host #2548278", "msg #mp_42 !mp host #2548278", "msg #mp_42 !mp host -SH-");
+    }
+
+    @Test
+    void invalidPlayerTargetsSendNothing() throws Exception {
+        for (String command : List.of("invite", "host")) {
+            for (String target : List.of("#0", "#abc", "https://example.com/users/2548278",
+                    "https://osu.ppy.sh/users/nope")) {
+                assertThat(run(command + " " + target + " --room 42")).startsWith("錯誤：");
+            }
+        }
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void setAcceptsModeNamesAndAliasesIgnoringCase() throws Exception {
+        for (String team : List.of("h2h", "headtohead", "0")) {
+            run("set " + team + " accuracy 2 --room 42");
+        }
+        run("set TAG v1 2 --room 42");
+        run("set tagteam scorev1 2 --room 42");
+        run("set tagcoop score 2 --room 42");
+        run("set teamvs V2 4 --room 42");
+        run("set --room 42 tagvs combo 4");
+        run("set tagteamvs scorev2 4 --room 42");
+        run("set 2 acc 4 --room 42");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp set 0 1 2", "msg #mp_42 !mp set 0 1 2",
+                "msg #mp_42 !mp set 0 1 2", "msg #mp_42 !mp set 1 0 2", "msg #mp_42 !mp set 1 0 2",
+                "msg #mp_42 !mp set 1 0 2", "msg #mp_42 !mp set 2 3 4", "msg #mp_42 !mp set 3 2 4",
+                "msg #mp_42 !mp set 3 3 4", "msg #mp_42 !mp set 2 1 4");
+    }
+
+    @Test
+    void setRejectsUnknownModesWithoutSending() throws Exception {
+        assertThat(run("set catch v2 4 --room 42")).contains("不認得的隊伍模式", "h2h", "teamvs");
+        assertThat(run("set teamvs nope 4 --room 42")).contains("不認得的計分模式", "accuracy", "scorev2");
+        assertThat(run("set teamvs v2 4 extra --room 42")).contains("多餘的參數：extra");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void hostRejectsMissingTargetUnknownOptionsAndRoomAfterDoubleDash() throws Exception {
+        session.use(42);
+        assertThat(run("host --room 42")).startsWith("錯誤：");
+        assertThat(run("host A --rom 42")).contains("不認得的選項");
+        assertThat(run("host -- -SH- --room 42")).contains("host \"-SH-\" --room 42");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void helpExplainsPlayerIdsAndSetModeAliases() throws Exception {
+        assertThat(run("host --help")).contains("#2548278", "host -- -SH-", "--room");
+        assertThat(run("invite --help")).contains("#2548278", "https://osu.ppy.sh/users/2548278");
+        assertThat(run("set --help")).contains("headtohead", "tagcoop", "accuracy", "scorev2", "map");
+    }
+
+    @Test
+    void playerCommandRepliesMatchResolvedIrcTargets() throws Exception {
+        assertThat(run("invite osu.ppy.sh/users/2548278 --room 42"))
+                .isEqualTo("已送出：!mp invite #2548278");
+        assertThat(run("host https://osu.ppy.sh/users/2548278/fruits --room 42"))
+                .isEqualTo("已送出：!mp host #2548278");
+        assertThat(run("addref osu.ppy.sh/users/2548278/fruits #42 --room 42"))
+                .isEqualTo("已送出：!mp addref #2548278 #42");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp invite #2548278",
+                "msg #mp_42 !mp host #2548278", "msg #mp_42 !mp addref #2548278 #42");
+    }
+
+    @Test
+    void namedProfilesAndInvalidRefereesSendNothing() throws Exception {
+        assertThat(run("invite osu.ppy.sh/users/Alexlin86 --room 42"))
+                .contains("數字 ID", "直接輸入玩家名稱");
+        assertThat(run("addref #42 #0 --room 42")).startsWith("錯誤：");
+        assertThat(run("addref \"Minato Yukina\" --room 42")).contains("#ID");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void malformedSchemeLessUrlsAreErrorsInsteadOfQueuedNames() throws Exception {
+        for (String command : List.of("invite", "host", "addref")) {
+            assertThat(run(command + " www.osu.ppy.sh/users/2548278 --room 42"))
+                    .startsWith("錯誤：").contains("玩家網址").doesNotContain("已送出");
+        }
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void chatWordStartingWithDashIsReportedNotDropped() throws Exception {
         assertThat(run("say score was -5 lol --room 42")).contains("不認得的選項：-5");
         assertThat(sender.calls).isEmpty();
@@ -210,7 +331,7 @@ class ShellCommandParsingTest {
         matchService.attach(7);
         session.use(7);
         sender.calls.clear();
-        for (String command : java.util.List.of("addref", "invite")) {
+        for (String command : java.util.List.of("addref", "invite", "host")) {
             for (String option : java.util.List.of("--room=42", "--room=")) {
                 assertThat(run(command + " -- -SH- " + option)).startsWith("錯誤：")
                         .contains(command + " \"-SH-\" --room 42");

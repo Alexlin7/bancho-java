@@ -25,6 +25,8 @@ class MatchRoomTest {
     static Stream<Arguments> commands() {
         return Stream.of(
                 Arguments.of((Consumer<MatchRoom>) r -> r.invite("Alexlin86"), "!mp invite Alexlin86"),
+                Arguments.of((Consumer<MatchRoom>) r -> r.host("https://osu.ppy.sh/users/2548278"), "!mp host #2548278"),
+                Arguments.of((Consumer<MatchRoom>) r -> r.host("- Ｓ Ｈ -"), "!mp host - Ｓ Ｈ -"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.set(0, 3, 2), "!mp set 0 3 2"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.map(1502772), "!mp map 1502772"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.map(2453358, GameMode.MANIA), "!mp map 2453358 3"),
@@ -60,6 +62,103 @@ class MatchRoomTest {
         assertThat(room.state().name()).isEqualTo("r");
     }
 
+    @Test
+    void inviteConvertsProfileUrlsWithoutChangingUnicodeNames() {
+        room.invite("https://osu.ppy.sh/users/2548278");
+        room.invite("https://osu.ppy.sh/u/2548278/");
+        room.invite("#2548278");
+        room.invite("- Ｓ Ｈ -");
+        assertThat(sender.calls).containsExactly("msg #mp_123 !mp invite #2548278",
+                "msg #mp_123 !mp invite #2548278", "msg #mp_123 !mp invite #2548278",
+                "msg #mp_123 !mp invite - Ｓ Ｈ -");
+    }
+
+    @Test
+    void inviteRejectsInvalidReferencesAndControlCharactersBeforeSending() {
+        for (String target : java.util.List.of("#0", "#-1", "#abc", "#99999999999999999999999999",
+                "https://example.com/users/2548278", "https://osu.ppy.sh.evil/users/2548278",
+                "https://osu.ppy.sh/users/not-an-id", "https://osu.ppy.sh/users/2548278/extra",
+                "https://user@osu.ppy.sh/users/2548278", "A\r\nPRIVMSG BanchoBot :!mp make wrong", "A\u0000B")) {
+            assertThatThrownBy(() -> room.invite(target)).as(target).isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void playerCommandsAcceptSchemeLessProfilesAndRulesetSuffixes() {
+        room.invite("osu.ppy.sh/users/2548278");
+        for (String mode : java.util.List.of("osu", "taiko", "fruits", "mania")) {
+            room.host("https://osu.ppy.sh/users/2548278/" + mode);
+        }
+        room.addRef("osu.ppy.sh/users/2548278/fruits", "#42");
+        assertThat(sender.calls).containsExactly("msg #mp_123 !mp invite #2548278",
+                "msg #mp_123 !mp host #2548278", "msg #mp_123 !mp host #2548278",
+                "msg #mp_123 !mp host #2548278", "msg #mp_123 !mp host #2548278",
+                "msg #mp_123 !mp addref #2548278 #42");
+    }
+
+    @Test
+    void namedProfileExplainsHowToUseANameWithoutSending() {
+        assertThatThrownBy(() -> room.invite("https://osu.ppy.sh/users/Alexlin86"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("數字 ID", "直接輸入玩家名稱");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void slashTargetsNeverFallBackToPlayerNames() {
+        for (String target : java.util.List.of("www.osu.ppy.sh/users/2548278", "osu.ppy.shh/users/2548278",
+                "example.com/users/2548278", "osu.ppy.sh.evil/users/2548278", "/users/2548278", "Some/Player")) {
+            assertThatThrownBy(() -> room.invite(target)).as("invite %s", target)
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("玩家網址");
+            assertThatThrownBy(() -> room.host(target)).as("host %s", target)
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("玩家網址");
+            assertThatThrownBy(() -> room.addRef("#42", target)).as("addref %s", target)
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("玩家網址");
+        }
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void addRefRejectsInvalidReferencesAtomically() {
+        assertThatThrownBy(() -> room.addRef("#42", "https://example.com/users/1"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> room.addRef("#0")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void playerTargetsExplainMultipleExplicitReferencesConsistently() {
+        for (String target : java.util.List.of("#1 #2", "#1 Alexlin86", "osu.ppy.sh/users/1 #2")) {
+            assertThatThrownBy(() -> room.host(target)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("一次只能指定一位玩家");
+            assertThatThrownBy(() -> room.invite(target)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("一次只能指定一位玩家");
+            assertThatThrownBy(() -> room.addRef(target)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("一次只能指定一位玩家");
+        }
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void playerNamesCannotContainHashes() {
+        for (String target : java.util.List.of("Alexlin86 #2", "Alexlin#86", "#1#2")) {
+            assertThatThrownBy(() -> room.invite(target)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("玩家名稱不可含 #");
+            assertThatThrownBy(() -> room.host(target)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("玩家名稱不可含 #");
+            assertThatThrownBy(() -> room.addRef(target)).isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("玩家名稱不可含 #");
+        }
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void profileFragmentsAreAllowedWhileNamesRejectHashes() {
+        room.invite("osu.ppy.sh/users/2548278/fruits#medals");
+        room.host("https://osu.ppy.sh/users/2548278#top");
+        assertThat(sender.calls).containsExactly("msg #mp_123 !mp invite #2548278", "msg #mp_123 !mp host #2548278");
+    }
+
     static Stream<ThrowingCallable> invalidArguments() {
         MatchRoom target = new MatchRoom(1, "r", new RecordingIrcSender());
         return Stream.of(
@@ -72,6 +171,8 @@ class MatchRoomTest {
                 () -> target.raw(" "),
                 () -> target.raw(null),
                 () -> target.invite(" "),
+                () -> target.host(" "),
+                () -> target.host("#0"),
                 target::addRef,
                 () -> target.start(Duration.ofSeconds(-1)));
     }
@@ -133,6 +234,7 @@ class MatchRoomTest {
         room.apply(new MatchClosed(123));
 
         assertThatThrownBy(() -> room.invite("A")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> room.host("A")).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> room.raw("host x")).isInstanceOf(IllegalStateException.class);
         assertThat(sender.calls).isEmpty();
     }

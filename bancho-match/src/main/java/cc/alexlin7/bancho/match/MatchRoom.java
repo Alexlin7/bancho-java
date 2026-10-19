@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import cc.alexlin7.bancho.irc.IrcSender;
 import cc.alexlin7.bancho.match.event.MatchEvent;
@@ -44,17 +45,24 @@ public final class MatchRoom {
         state.updateAndGet(current -> current.apply(event));
     }
 
-    public void invite(String username) {
-        command(inviteCommand(username));
+    /** 邀請玩家，回傳實際入列指令，供前端顯示；不代表 BanchoBot 已確認成功。 */
+    public String invite(String username) {
+        return command(inviteCommand(username));
+    }
+
+    /** 指定房主；可用名稱、#ID 或 osu! 個人頁網址，回傳實際入列指令。 */
+    public String host(String player) {
+        return command(MP + "host " + PlayerTarget.commandArgument(player));
     }
 
     /**
      * @param teamMode  0–3
      * @param scoreMode 0–3
      * @param size      1–16
+     * @return 實際入列指令
      */
-    public void set(int teamMode, int scoreMode, int size) {
-        command(setCommand(teamMode, scoreMode, size));
+    public String set(int teamMode, int scoreMode, int size) {
+        return command(setCommand(teamMode, scoreMode, size));
     }
 
     public void map(long beatmapId) {
@@ -99,8 +107,9 @@ public final class MatchRoom {
         command(passwordCommand(password));
     }
 
-    public void addRef(String... usernames) {
-        command(addRefCommand(usernames));
+    /** 新增裁判，回傳實際入列指令；含空白名稱請改用 #ID 或個人頁網址。 */
+    public String addRef(String... usernames) {
+        return command(addRefCommand(usernames));
     }
 
     /**
@@ -108,26 +117,46 @@ public final class MatchRoom {
      * 先組好並檢查全部指令才開始送，任何欄位不合法時一條都不送，避免房間停在套用一半的狀態。
      */
     public void apply(MatchPreset preset) {
+        presetCommands(preset).forEach(this::command);
+    }
+
+    /** 驗證與套用使用同一份組裝流程，任何欄位失敗時都不會送出其他指令。 */
+    private static List<String> presetCommands(MatchPreset preset) {
         List<String> commands = new ArrayList<>();
         if (preset.hasSettings()) {
-            commands.add(setCommand(preset.teamMode(), preset.scoreMode(), preset.size()));
+            TeamMode teamMode = presetField("team-mode", () -> TeamMode.parse(preset.teamMode())
+                    .orElseThrow(() -> new IllegalArgumentException(preset.teamMode()
+                            + "（可用 h2h、tag、teamvs、tagvs 或 0–3）")));
+            ScoreMode scoreMode = presetField("score-mode", () -> ScoreMode.parse(preset.scoreMode())
+                    .orElseThrow(() -> new IllegalArgumentException(preset.scoreMode()
+                            + "（可用 score、accuracy、combo、scorev2 或 0–3）")));
+            commands.add(setCommand(teamMode.id(), scoreMode.id(), preset.size()));
         }
         if (preset.password() != null) {
             commands.add(passwordCommand(preset.password()));
         }
         if (!preset.mods().isEmpty()) {
-            commands.add(modsCommand(preset.mods().toArray(String[]::new)));
+            commands.add(presetField("mods", () -> modsCommand(preset.mods().toArray(String[]::new))));
         }
         if (preset.beatmap() != null) {
-            GameMode mode = preset.mode() == null ? null : GameMode.parse(preset.mode())
-                    .orElseThrow(() -> new IllegalArgumentException("不認得的遊玩模式：" + preset.mode()));
+            GameMode mode = preset.mode() == null ? null : presetField("mode", () -> GameMode.parse(preset.mode())
+                    .orElseThrow(() -> new IllegalArgumentException(preset.mode()
+                            + "（可用 osu、taiko、catch、mania 或 0–3）")));
             commands.add(mapCommand(preset.beatmap(), mode));
         }
         if (!preset.referees().isEmpty()) {
-            commands.add(addRefCommand(preset.referees().toArray(String[]::new)));
+            commands.add(presetField("referees", () -> addRefCommand(preset.referees().toArray(String[]::new))));
         }
-        preset.invite().forEach(username -> commands.add(inviteCommand(username)));
-        commands.forEach(this::command);
+        preset.invite().forEach(username -> commands.add(presetField("invite", () -> inviteCommand(username))));
+        return commands;
+    }
+
+    private static <T> T presetField(String field, Supplier<T> value) {
+        try {
+            return value.get();
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(field + " 無效：" + e.getMessage(), e);
+        }
     }
 
     public void settings() {
@@ -147,15 +176,16 @@ public final class MatchRoom {
         command(text);
     }
 
-    private void command(String text) {
+    private String command(String text) {
         if (state.get().closed()) {
             throw new IllegalStateException("房間已關閉：" + channel());
         }
         sender.sendMessage(channel(), text);
+        return text;
     }
 
     private static String inviteCommand(String username) {
-        return MP + "invite " + requireName(username);
+        return MP + "invite " + PlayerTarget.commandArgument(username);
     }
 
     private static String setCommand(int teamMode, int scoreMode, int size) {
@@ -170,23 +200,17 @@ public final class MatchRoom {
     }
 
     /**
-     * 檢查範本中要到送出時才會檢查的欄位（遊玩模式、mod），讓設定錯誤在開房前就被發現。
+     * 使用與 apply 相同的指令組裝驗證所有欄位，讓設定錯誤在開房前就被發現，不送出指令。
      *
      * @param name   範本名稱，只用於錯誤訊息
      * @param preset 要檢查的範本
      * @throws IllegalArgumentException 欄位不合法時，訊息帶有範本名稱
      */
     public static void validatePreset(String name, MatchPreset preset) {
-        if (preset.mode() != null && GameMode.parse(preset.mode()).isEmpty()) {
-            throw new IllegalArgumentException("範本 " + name + " 的 mode 無效：" + preset.mode()
-                    + "（可用 osu、taiko、catch、mania 或 0–3）");
-        }
-        if (!preset.mods().isEmpty()) {
-            try {
-                modsCommand(preset.mods().toArray(String[]::new));
-            } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("範本 " + name + " 的 mods 無效：" + e.getMessage(), e);
-            }
+        try {
+            presetCommands(preset);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("範本 " + name + " 的 " + e.getMessage(), e);
         }
     }
 
@@ -214,19 +238,12 @@ public final class MatchRoom {
         if (usernames.length == 0) {
             throw new IllegalArgumentException("至少要指定一位裁判");
         }
-        // 多位裁判以空白分隔，名稱本身含空白會被 BanchoBot 拆成兩個人；空白是否可換成底線尚未實測，先拒絕
-        List<String> names = Arrays.stream(usernames).map(MatchRoom::requireName).toList();
-        names.stream().filter(name -> name.contains(" ")).findFirst().ifPresent(name -> {
-            throw new IllegalArgumentException("addref 的名稱不可含空白：" + name);
+        // 多位裁判以空白分隔，含空白的名稱使用 #ID 或網址，避免被拆成不同玩家。
+        List<String> names = Arrays.stream(usernames).map(PlayerTarget::commandArgument).toList();
+        names.stream().filter(name -> name.codePoints().anyMatch(Character::isWhitespace)).findFirst().ifPresent(name -> {
+            throw new IllegalArgumentException("addref 的名稱不可含空白：" + name + "；請改用 #ID 或個人頁網址");
         });
         return MP + "addref " + String.join(" ", names);
-    }
-
-    private static String requireName(String username) {
-        if (username == null || username.isBlank()) {
-            throw new IllegalArgumentException("使用者名稱不可為空白");
-        }
-        return username.strip();
     }
 
     private static void requireRange(String field, int value, int min, int max) {
