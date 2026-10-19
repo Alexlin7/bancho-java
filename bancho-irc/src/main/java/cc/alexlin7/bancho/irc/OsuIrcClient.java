@@ -70,7 +70,8 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     private volatile Credentials credentials;
 
     /**
-     * 只由 connection thread 讀寫。
+     * 由 connection thread 讀寫。例外是認證失敗後的 {@link #login}：舊的 connection thread 已結束，
+     * 在啟動新 thread 前重設，新 thread 經由 {@link Thread#start} 看得到這次寫入。
      */
     private Duration reconnectDelay;
 
@@ -82,36 +83,6 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         this.listeners = new CopyOnWriteArrayList<>(listeners);
         this.reconnectDelay = timing.reconnectMinDelay();
         this.credentials = settings.hasCredentials() ? new Credentials(settings.username(), settings.password()) : null;
-    }
-
-    private boolean trySend(Connection current, String line) {
-        try {
-            current.writeLine(line);
-            log.debug("[osu! IRC] -> {}", outboundRedactor.apply(line));
-            return true;
-        } catch (IOException e) {
-            log.warn("[osu! IRC] 發送失敗，重新連線後重送", e);
-            return false;
-        }
-    }
-
-    private static String normalizeTarget(String target) {
-        if (target == null || target.isBlank() || target.chars().anyMatch(c -> c == '\r' || c == '\n' || c == '\0')) {
-            throw new IllegalArgumentException("不合法的訊息對象：" + target);
-        }
-        return target.strip().replace(' ', '_');
-    }
-
-    private static String normalizeChannel(String channel) {
-        String name = normalizeTarget(channel);
-        if (!name.startsWith("#")) {
-            throw new IllegalArgumentException("頻道名稱必須以 # 開頭：" + channel);
-        }
-        return name;
-    }
-
-    private static int toMillis(Duration duration) {
-        return Math.toIntExact(duration.toMillis());
     }
 
     /**
@@ -158,6 +129,8 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
     public boolean hasCredentials() {
         return credentials != null;
     }
+
+    // ---------------------------------------------------------------- lifecycle
 
     /**
      * @throws IllegalStateException 沒有帳密（延後登入時請改用 {@link #login}）
@@ -223,7 +196,29 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         }
     }
 
-    // ---------------------------------------------------------------- connection thread
+    @Override
+    public void close() {
+        synchronized (lifecycleLock) {
+            if (closed) {
+                return;
+            }
+            closed = true;
+        }
+        setState(IrcConnectionState.CLOSED);
+        Connection current = connection.get();
+        if (current != null) {
+            try {
+                current.writeLine("QUIT :Shutdown");
+            } catch (IOException e) {
+                log.debug("[osu! IRC] 送出 QUIT 失敗", e);
+            }
+            current.closeQuietly();
+        }
+        workers.forEach(Thread::interrupt);
+        log.info("[osu! IRC] 連線已關閉");
+    }
+
+    // ---------------------------------------------------------------- IrcSender
 
     @Override
     public void sendMessage(String target, String message) {
@@ -265,27 +260,7 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         }
     }
 
-    @Override
-    public void close() {
-        synchronized (lifecycleLock) {
-            if (closed) {
-                return;
-            }
-            closed = true;
-        }
-        setState(IrcConnectionState.CLOSED);
-        Connection current = connection.get();
-        if (current != null) {
-            try {
-                current.writeLine("QUIT :Shutdown");
-            } catch (IOException e) {
-                log.debug("[osu! IRC] 送出 QUIT 失敗", e);
-            }
-            current.closeQuietly();
-        }
-        workers.forEach(Thread::interrupt);
-        log.info("[osu! IRC] 連線已關閉");
-    }
+    // ---------------------------------------------------------------- connection thread
 
     private void runConnectionLoop() {
         while (!closed) {
@@ -347,8 +322,6 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         }
     }
 
-    // ---------------------------------------------------------------- dispatcher thread
-
     private void register(Connection current) throws IOException {
         Credentials login = credentials;
         String nick = login.username().replace(' ', '_');
@@ -387,7 +360,15 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         }
     }
 
-    // ---------------------------------------------------------------- sender thread
+    private void notifyReceived(String line) {
+        for (IrcTrafficListener listener : trafficListeners) {
+            try {
+                listener.received(line);
+            } catch (RuntimeException e) {
+                log.error("[osu! IRC] {} 處理收到的行時發生例外", listener.getClass().getSimpleName(), e);
+            }
+        }
+    }
 
     private void handleServerMessage(Connection current, IrcMessage message) throws IOException {
         switch (message.command()) {
@@ -414,6 +395,8 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         setState(IrcConnectionState.REGISTERED);
     }
 
+    // ---------------------------------------------------------------- dispatcher thread
+
     private void runDispatchLoop() {
         try {
             while (!closed) {
@@ -424,8 +407,6 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         }
     }
 
-    // ---------------------------------------------------------------- helpers
-
     private void dispatch(IrcMessage message) {
         for (IrcMessageListener listener : listeners) {
             try {
@@ -435,6 +416,8 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
             }
         }
     }
+
+    // ---------------------------------------------------------------- sender thread
 
     private void runSendLoop() {
         try {
@@ -449,6 +432,27 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
             }
         } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private Connection awaitRegisteredConnection() throws InterruptedException {
+        while (true) {
+            Connection current = connection.get();
+            if (current != null && current.isUsable()) {
+                return current;
+            }
+            Thread.sleep(REGISTRATION_POLL);
+        }
+    }
+
+    private boolean trySend(Connection current, String line) {
+        try {
+            current.writeLine(line);
+            log.debug("[osu! IRC] -> {}", outboundRedactor.apply(line));
+            return true;
+        } catch (IOException e) {
+            log.warn("[osu! IRC] 發送失敗，重新連線後重送", e);
+            return false;
         }
     }
 
@@ -468,29 +472,30 @@ public class OsuIrcClient implements IrcSender, AutoCloseable {
         }
     }
 
-    private void notifyReceived(String line) {
-        for (IrcTrafficListener listener : trafficListeners) {
-            try {
-                listener.received(line);
-            } catch (RuntimeException e) {
-                log.error("[osu! IRC] {} 處理收到的行時發生例外", listener.getClass().getSimpleName(), e);
-            }
-        }
-    }
-
-    private Connection awaitRegisteredConnection() throws InterruptedException {
-        while (true) {
-            Connection current = connection.get();
-            if (current != null && current.isUsable()) {
-                return current;
-            }
-            Thread.sleep(REGISTRATION_POLL);
-        }
-    }
+    // ---------------------------------------------------------------- helpers
 
     private boolean isRegistered() {
         Connection current = connection.get();
         return current != null && current.isUsable();
+    }
+
+    private static String normalizeTarget(String target) {
+        if (target == null || target.isBlank() || target.chars().anyMatch(c -> c == '\r' || c == '\n' || c == '\0')) {
+            throw new IllegalArgumentException("不合法的訊息對象：" + target);
+        }
+        return target.strip().replace(' ', '_');
+    }
+
+    private static String normalizeChannel(String channel) {
+        String name = normalizeTarget(channel);
+        if (!name.startsWith("#")) {
+            throw new IllegalArgumentException("頻道名稱必須以 # 開頭：" + channel);
+        }
+        return name;
+    }
+
+    private static int toMillis(Duration duration) {
+        return Math.toIntExact(duration.toMillis());
     }
 
     /** 出站佇列的一行與送出後的通知。 */
