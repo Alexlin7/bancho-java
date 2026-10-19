@@ -55,7 +55,7 @@ class SampleRecorderTest {
     }
 
     @Test
-    void createsMissingDirectory() throws Exception {
+    void createsMissingDirectory() {
         Path nested = dir.resolve("logs/nested");
         SampleRecorder recorder = new SampleRecorder(nested, at(NOON));
 

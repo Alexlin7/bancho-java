@@ -88,7 +88,7 @@ class OsuIrcAutoConfigurationTest {
 
     @Test
     void customClientReplacesDefaultsWhenPackageIsComponentScanned() {
-        // 使用端的根套件涵蓋本套件時（例如 bancho-shell 的 BanchoApplication），掃描也不能提早觸發預設 client 的條件判斷
+        // 使用端的根套件涵蓋本套件時（例如 bancho-shell 的 BanchoShellApplication），掃描也不能提早觸發預設 client 的條件判斷
         runner.withUserConfiguration(ScanningApplication.class)
                 .withPropertyValues("osu.irc.username=", "osu.irc.password=")
                 .run(context -> {

@@ -33,12 +33,12 @@ pwsh bancho-shell/src/dist/package-windows.ps1 -Version X.Y.Z -Jar bancho-shell/
 | `bancho-match` | `match` 套件與 `banchobot/` 樣本，純 Java，compile 依賴只有 `bancho-irc` 與 `slf4j-api`（不可加入 Spring） |
 | `bancho-match-spring` | `match.spring` 套件：`bancho.match.*` 綁定、範本檢查與 auto-configuration，把房間事件轉成 Spring 事件 |
 | `bancho-observability` | `observability` 套件、`logback-spring.xml`、`application-otel.properties`；`@SpringBootTest` 由 test 的 `ObservabilityTestApplication` 啟動。目前沒有前端依賴它（shell 已移除，避免把 OTLP 與 protobuf 帶進給測試者的版本），留給日後需要匯出的前端（例如 Discord） |
-| `bancho-shell` | 唯一可執行的模組：`BanchoApplication`、`shell` 套件、`application.properties` |
+| `bancho-shell` | 唯一可執行的模組：`BanchoShellApplication`、`shell` 套件、`application.properties` |
 | `bancho-discord` | 尚未實作 |
 
 程式碼直接 import 的內部模組要在自己的 pom 明確宣告，不靠遞移帶入（`dependency:analyze` 的 used undeclared）；純 Java 模組（irc、match）也要自己宣告 `slf4j-api`。Spring 模組的 `slf4j-api` 與 Spring 本身的 jar（`spring-context`、`spring-boot` 等）視為 Boot 的一部分，不逐一宣告。前端的 `*-spring` 模組只在執行期作用，analyze 報 unused declared 是誤報。
 
-`spring-boot-maven-plugin` 只能宣告在可執行的模組（函式庫被 repackage 後就無法被依賴）；根 pom 設 `spring-boot.run.skip=true`，可執行模組改成 `false`，`-am` 時其他模組才不會被 `spring-boot:run`。package 名稱維持 `cc.alexlin7.bancho.<feature>`，`BanchoApplication` 的元件掃描會涵蓋其他模組的 bean；同一個 package 不要分散在多個模組。
+`spring-boot-maven-plugin` 只能宣告在可執行的模組（函式庫被 repackage 後就無法被依賴）；根 pom 設 `spring-boot.run.skip=true`，可執行模組改成 `false`，`-am` 時其他模組才不會被 `spring-boot:run`。package 名稱維持 `cc.alexlin7.bancho.<feature>`，`BanchoShellApplication` 的元件掃描會涵蓋其他模組的 bean；同一個 package 不要分散在多個模組。
 
 ### 發布到 Maven Central
 
@@ -159,7 +159,7 @@ Spring Shell 的非互動模式（`SPRING_SHELL_INTERACTIVE_ENABLED=false` 加�
 - 會被 SonarQube 掃描：`InterruptedException` 要重設中斷旗標，資源用 try-with-resources 關閉，測試避免 `Thread.sleep`（改用 `FakeIrcServer.awaitLine` / `awaitConnection` 這類有時限的等待）。
 - 測試不得啟動互動 shell：test 的 `application.properties` 設 `spring.shell.interactive.enabled=false`，`bancho-shell/src/test/.../TestShellRunnerConfiguration` 以空的 `springShellApplicationRunner` 取代 shell runner，並把 JLine 換成 dumb terminal（測試 JVM 沒有主控台，偵測系統 terminal 要約 40 秒）。它放在根 package，所以 shell 模組的每個 `@SpringBootTest` 都會掃描到。要經由真正的 parser / registry 測指令時，用 `new ShellTestClient(commandParser, commandRegistry)`。
 - 使用 `ApplicationContextRunner` 載入 `OsuIrcAutoConfiguration` 時，除非就是要測連線，否則要設 `osu.irc.auto-start=false`，否則 `OsuIrcLifecycle` 會在 refresh 時連到真的 cho.ppy.sh。
-- `bancho-observability` 測試的 OTel service name 是 `bancho-test`，與正式的 `bancho` 區隔。
+- `bancho-observability` 測試的 OTel service name 是 `bancho-test`，與前端的 `spring.application.name` 區隔。
 - 連線行為的測試使用 `irc.FakeIrcServer`（本機假 IRC server），不要連到真的 Bancho；記錄送訊內容用 `irc.RecordingIrcSender`。
 - 程式註解與 log 訊息使用繁體中文。
 - 尚未驗證：Bancho 是否一定回 464、是否回應 client 主動送的 PING、超過 512 bytes 時的行為。官方文件都沒有寫，目前程式是保守處理。

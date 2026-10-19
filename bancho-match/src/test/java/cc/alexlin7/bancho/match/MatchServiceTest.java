@@ -258,7 +258,7 @@ class MatchServiceTest {
                     inGap.countDown();
                     try {
                         release.await(5, TimeUnit.SECONDS);
-                    } catch (InterruptedException e) {
+                    } catch (InterruptedException _) {
                         Thread.currentThread().interrupt();
                     }
                 }

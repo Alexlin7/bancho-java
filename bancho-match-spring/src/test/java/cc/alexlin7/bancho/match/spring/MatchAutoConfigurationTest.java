@@ -93,7 +93,7 @@ class MatchAutoConfigurationTest {
 
     @Test
     void worksWhenPackageIsComponentScanned() {
-        // 使用端的根套件涵蓋本套件時（例如 bancho-shell 的 BanchoApplication），不能重複建立或提早判斷條件
+        // 使用端的根套件涵蓋本套件時（例如 bancho-shell 的 BanchoShellApplication），不能重複建立或提早判斷條件
         runner.withUserConfiguration(ScanningApplication.class)
                 .run(context -> assertThat(context).hasNotFailed()
                         .hasSingleBean(MatchService.class)

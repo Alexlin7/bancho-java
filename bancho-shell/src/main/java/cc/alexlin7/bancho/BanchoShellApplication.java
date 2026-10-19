@@ -4,10 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class BanchoApplication {
+public class BanchoShellApplication {
 
     static void main(String[] args) {
-        SpringApplication.run(BanchoApplication.class, args);
+        SpringApplication.run(BanchoShellApplication.class, args);
     }
 
 }

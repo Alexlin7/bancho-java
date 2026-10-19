@@ -6,20 +6,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +24,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 
 @ExtendWith(OutputCaptureExtension.class)
 class OsuIrcClientTest {
@@ -481,7 +481,9 @@ class OsuIrcClientTest {
         assertThat(client.state()).isEqualTo(IrcConnectionState.IDLE);
     }
 
-    /** 狀態在 connection thread 上改變，以有時限的輪詢等待（不用 Thread.sleep）。 */
+    /**
+     * 狀態在 connection thread 上改變，以有時限的輪詢等待（不用 Thread.sleep）。
+     */
     private void awaitState(IrcConnectionState expected) throws InterruptedException {
         BlockingQueue<IrcConnectionState> reached = new LinkedBlockingQueue<>();
         client.addConnectionListener(state -> {
