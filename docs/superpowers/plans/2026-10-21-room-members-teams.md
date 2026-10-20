@@ -24,7 +24,7 @@
 
 1. 名稱含空白的玩家換隊／進房（`- S H - joined in slot 2 for team red.`、`Tomari Mari changed to Blue`）要取出完整名稱 → Task 2 parser 測試含空白名稱。
 2. `joined in slot N.`（h2h）與 `joined in slot N for team X.` 兩條規則互不吞掉；`X joined in slot 1 for team blue.` 不可產生名為 `X joined in slot 1 for team blue` 之類的錯誤狀態 → Task 2。
-3. `--room` 指定其他房間時，host／team 補全要列**那間房**的成員，不是目前房間 → Task 4 測試。
+3. `--room 43` 或 `--room=43` 指定其他房間時，host／team 補全要列**那間房**的成員，不是目前房間 → Task 4 測試。
 4. `set` 分段時目前設定只有一部分已知（只收到 `Changed match settings to TagTeamVs`，人數與計分未知）→ 已知項可 Enter、未知項 Enter 取消 → Task 6 測試。
 5. 換 slot 不可遺失隊伍（`moved to slot` 只改 slot）→ Task 2 `MatchState` 測試。
 
@@ -36,14 +36,20 @@
 - Modify: `bancho-match/src/main/java/cc/alexlin7/bancho/match/MatchRoom.java`（`addRef`、`addRefCommand`、`presetCommands`）
 - Modify: `bancho-shell/src/main/java/cc/alexlin7/bancho/shell/MatchCommands.java`（`addref`）
 - Modify: `bancho-match/AGENTS.md`、`bancho-shell/AGENTS.md`（addref 說明）
-- Test: `bancho-match/src/test/java/cc/alexlin7/bancho/match/MatchRoomTest.java`、`MatchRoomPresetTest.java`、`bancho-shell/src/test/java/cc/alexlin7/bancho/shell/MatchCommandsTest.java`
+- Create: `bancho-match/src/test/resources/banchobot/session-2026-10-20.irc`（addref 實測證據）
+- Test: `bancho-match/src/test/java/cc/alexlin7/bancho/match/MatchRoomTest.java`、`MatchRoomPresetTest.java`、`MatchReplayIntegrationTest.java`、`bancho-shell/src/test/java/cc/alexlin7/bancho/shell/MatchCommandsTest.java`
 
 **Interfaces:**
 - Produces: `public List<String> MatchRoom.addRef(String... usernames)`，回傳實際入列的指令，順序與輸入相同。
 
 - [ ] **Step 1: 開分支** `git switch -c feature/room-members-teams`
 
-- [ ] **Step 2: 寫失敗測試**
+- [ ] **Step 2: 匯入 10-20 樣本**
+  - 格式比照 `session-2026-10-17b.irc`：開頭 `#` 註解說明來源與日期，只放 `:BanchoBot!cho@ppy.sh PRIVMSG …` 行，原順序、保留行尾空白；私訊對象 `PRIVMSG Alexlin86` 改成 `PRIVMSG test_user`，訊息內容裡的玩家名稱不改。
+  - 內容：`logs/samples-2026-10-20.irc` 的 BanchoBot 行（房間 `122042830`，`banchoLibTest`），接上 `logs/samples-2026-10-21.irc` 開頭到 `Closed the match` 為止的同房 BanchoBot 行。註解寫明 `User not found: Saru86 #3538446`、`User not found: #2548278 #3538446` 是多目標寫在同一行的 `!mp addref` 回覆。
+  - `MatchReplayIntegrationTest.replaysRefereeSession`：回放後房 `122042830` 已關閉、`settings()` 為 `Settings(2, "TeamVs", "ScoreV2")`、`beatmap().id()` 為 `4853787`。不檢查未辨識數量（ref 相關回覆本次不解析）。
+
+- [ ] **Step 3: 寫失敗測試**
 
 ```java
 // MatchRoomTest
@@ -71,17 +77,22 @@ assertThat(commands.addref(List.of("A", "#2"), 42L, null))
 
 （測試變數名依各測試檔現有寫法調整。）
 
-- [ ] **Step 3: 跑測試確認失敗** `./mvnw -pl bancho-shell -am test -Dtest='MatchRoomTest,MatchRoomPresetTest,MatchCommandsTest' -Dsurefire.failIfNoSpecifiedTests=false` → 編譯失敗或斷言失敗。
+- [ ] **Step 4: 跑測試確認失敗** `./mvnw -pl bancho-shell -am test -Dtest='MatchRoomTest,MatchRoomPresetTest,MatchReplayIntegrationTest,MatchCommandsTest' -Dsurefire.failIfNoSpecifiedTests=false` → addref 測試編譯失敗或斷言失敗（回放測試應已通過）。
 
-- [ ] **Step 4: 實作**
+- [ ] **Step 5: 實作**
   - `addRefCommand` 改為 `private static List<String> addRefCommands(String... usernames)`：每位目標一條 `!mp addref <PlayerTarget.commandArgument(x)>`；空陣列與含空白名稱的錯誤訊息不變；全部檢查完才回傳。
   - `addRef` 先取得整份清單再逐條 `command(...)`。`presetCommands` 用 `addAll`。
   - shell `addref`：每條前面加 `已送出：`，以 `System.lineSeparator()` 連接。
-  - 更新兩個 `AGENTS.md`：`addref` 一次可給多位，每位各送一條（BanchoBot 一次只收一位，多位寫同一行會回 `User not found: A B`）。
+  - 更新兩個 `AGENTS.md`：`addref` 一次可給多位，每位各送一條。官方文件列有多目標語法，但 10-20 實測的「名稱＋#ID」「多個 #ID」寫在同一行都回 `User not found: <整串>`，因此統一逐位發送。
 
-- [ ] **Step 5: 跑測試確認通過**（同 Step 3 指令）→ PASS
+- [ ] **Step 6: 跑測試確認通過**（同 Step 4 指令）→ PASS
 
-- [ ] **Step 6: Commit** `git commit -am "fix(match): addref 每位目標各送一條指令"`
+- [ ] **Step 7: Commit**
+
+```bash
+git add bancho-match/src/test/resources/banchobot/session-2026-10-20.irc
+git commit -am "fix(match): addref 每位目標各送一條指令"
+```
 
 ---
 
@@ -89,6 +100,7 @@ assertThat(commands.addref(List.of("A", "#2"), 42L, null))
 
 **Files:**
 - Create: `bancho-match/src/main/java/cc/alexlin7/bancho/match/Team.java`
+- Create: `bancho-match/src/test/resources/banchobot/session-2026-10-19.irc`、`session-2026-10-21.irc`
 - Modify: `bancho-match/src/main/java/cc/alexlin7/bancho/match/event/MatchEvent.java`
 - Modify: `bancho-match/src/main/java/cc/alexlin7/bancho/match/BanchoBotParser.java`
 - Modify: `bancho-match/src/main/java/cc/alexlin7/bancho/match/MatchState.java`
@@ -107,7 +119,12 @@ assertThat(commands.addref(List.of("A", "#2"), 42L, null))
   - `record MatchState.Slot(String username, Long userId, String status, Team team)`，另保留三參數建構子（`team` = null）讓現有呼叫不變。
   - `MatchState` 新增元件 `String host`（最後一個元件；未知為 null）。
 
-- [ ] **Step 1: 寫失敗的 parser 測試**（`BanchoBotParserTest`，比照現有寫法以頻道 `#mp_42` 建 `IrcMessage`）
+- [ ] **Step 1: 先匯入樣本**（AGENTS 規則：新增解析規則前先加樣本）。格式同 Task 1 Step 2。
+  - `session-2026-10-19.irc`：`logs/samples-2026-10-19.irc` 中所有 BanchoBot 行（房間 `122038093`，`test12345`）。
+  - `session-2026-10-21.irc`：`logs/samples-2026-10-21.irc` 中 `00:20:04` 之後的 BanchoBot 行（房間 `122042973`，`test123`）。
+  - Step 2 的 parser 測試輸入要能在樣本找到原文；`- S H - joined in slot 2 for team red.` 與 `Tomari Mari changed to Blue` 沒有原文，是同格式換名稱、換顏色的衍生案例，測試中註明。
+
+- [ ] **Step 2: 寫失敗的 parser 測試**（`BanchoBotParserTest`，比照現有寫法以頻道 `#mp_42` 建 `IrcMessage`）
 
 | 輸入 | 期望事件 |
 |---|---|
@@ -122,7 +139,7 @@ assertThat(commands.addref(List.of("A", "#2"), 42L, null))
 | `Changed match settings to 6 slots, TagTeamVs, ScoreV2` | `SettingsChanged(42, 6, "TagTeamVs", "ScoreV2")`（不變） |
 | `Alexlin86 joined in slot 1 for team green.` | `Unrecognized`（不認得的顏色） |
 
-- [ ] **Step 2: 寫失敗的狀態測試**（`MatchStateTest`）
+- [ ] **Step 3: 寫失敗的狀態測試**（`MatchStateTest`）
   - `joinedWithTeamRecordsTeam`：`PlayerJoined(…, "A", 1, BLUE)` → `slots().get(1).team() == BLUE`。
   - `movedKeepsTeamAndDetails`：先 `SlotStatus(42, 1, "Not Ready", 7L, "A")`、`PlayerTeamChanged(…, "A", RED)`，再 `PlayerMoved(…, "A", 3)` → `slots() == Map.of(3, new Slot("A", 7L, "Not Ready", RED))`。
   - `teamChangedUpdatesPlayerSlot`；`teamChangedForUnknownPlayerIsIgnored`（狀態 `isEqualTo` 原狀態）。
@@ -130,9 +147,9 @@ assertThat(commands.addref(List.of("A", "#2"), 42L, null))
   - `partialSettingsKeepsKnownFields`：先 `SettingsChanged(42, 4, "TeamVs", "ScoreV2")`，再 `SettingsChanged(42, null, "TagTeamVs", null)` → `Settings(4, "TagTeamVs", "ScoreV2")`。
   - `switchingToNonTeamModeClearsTeams`：A 在 slot 1 為 BLUE，`SettingsChanged(42, 2, "HeadToHead", "ScoreV2")` → team 為 null；`switchingToTeamModeKeepsUnknownTeams`：h2h 下的 A 改成 `TeamVs` 後 team 仍為 null。
 
-- [ ] **Step 3: 跑測試確認失敗** `./mvnw -pl bancho-match test -Dtest='BanchoBotParserTest,MatchStateTest'` → 編譯失敗。
+- [ ] **Step 4: 跑測試確認失敗** `./mvnw -pl bancho-match test -Dtest='BanchoBotParserTest,MatchStateTest'` → 編譯失敗。
 
-- [ ] **Step 4: 實作**
+- [ ] **Step 5: 實作**
   - `Team`、`TeamMode.hasTeams()` 依 Interfaces。
   - `MatchEvent`：如 Interfaces 修改／新增；把 class javadoc 的「slot 狀態維持原文字串」補一句：隊伍轉成 `Team`，因為前端要依它分組。
   - Parser：在 `CHANNEL_RULES` 中，帶隊伍的進房規則 `(.+?) joined in slot (\d+) for team (blue|red)\.`（`CASE_INSENSITIVE` 只套在顏色也可，以 `Team.parse` 轉換）放在原進房規則之前；`(.+?) changed to (Red|Blue)`；`(.+?) became the host\.`；`Changed match host to (.+)`；`Changed match settings to (\S+)` 放在三段式規則之後。原本的 `(.+?) joined in slot (\d+)\.` 因為比對整行，不會吃到帶隊伍的行。
@@ -145,29 +162,27 @@ assertThat(commands.addref(List.of("A", "#2"), 42L, null))
     - `SettingsChanged` → null 欄位沿用舊值；新 teamMode 經 `TeamMode.parse` 為非隊伍模式時清掉所有 slot 的 team。
   - `KnownUsers`：`HostChanged`、`PlayerTeamChanged` 的名稱也 `add`。
 
-- [ ] **Step 5: 跑測試確認通過** `./mvnw -pl bancho-shell -am test -Dsurefire.failIfNoSpecifiedTests=false` → 全部 PASS（`MatchReplayIntegrationTest` 舊樣本的 `Slot` 比較用三參數建構子仍相等）。
+- [ ] **Step 6: 跑測試確認通過** `./mvnw -pl bancho-shell -am test -Dsurefire.failIfNoSpecifiedTests=false` → 全部 PASS（`MatchReplayIntegrationTest` 舊樣本的 `Slot` 比較用三參數建構子仍相等）。
 
-- [ ] **Step 6: Commit** `git commit -am "feat(match): 追蹤隊伍、host 與部分房間設定"`
+- [ ] **Step 7: Commit**
+
+```bash
+git add bancho-match/src/main/java/cc/alexlin7/bancho/match/Team.java bancho-match/src/test/resources/banchobot/session-2026-10-19.irc bancho-match/src/test/resources/banchobot/session-2026-10-21.irc
+git commit -am "feat(match): 追蹤隊伍、host 與部分房間設定"
+```
 
 ---
 
-### Task 3: 匯入 10-19、10-21 樣本並回放
+### Task 3: 回放 10-19、10-21 樣本
 
 **Files:**
-- Create: `bancho-match/src/test/resources/banchobot/session-2026-10-19.irc`
-- Create: `bancho-match/src/test/resources/banchobot/session-2026-10-21.irc`
 - Modify: `bancho-match/src/test/java/cc/alexlin7/bancho/match/MatchReplayIntegrationTest.java`
 - Modify: `bancho-match/AGENTS.md`
 
 **Interfaces:**
-- Consumes: Task 2 的 `Team`、`HostChanged`、`PlayerTeamChanged`、`MatchState.host()`、四參數 `Slot`。
+- Consumes: Task 2 的樣本檔、`Team`、`HostChanged`、`PlayerTeamChanged`、`MatchState.host()`、四參數 `Slot`。
 
-- [ ] **Step 1: 建立樣本檔**
-  - 格式比照 `session-2026-10-17b.irc`：開頭 `#` 註解說明來源與日期，只放 `:BanchoBot!cho@ppy.sh PRIVMSG …` 行，原順序、保留行尾空白；私訊對象 `PRIVMSG Alexlin86` 改成 `PRIVMSG test_user`，訊息內容裡的玩家名稱不改。
-  - `session-2026-10-19.irc`：`logs/samples-2026-10-19.irc` 中所有 BanchoBot 行（房間 `122038093`，`test12345`）。
-  - `session-2026-10-21.irc`：`logs/samples-2026-10-21.irc` 中 `00:20:04` 之後的 BanchoBot 行（房間 `122042973`，`test123`）。
-
-- [ ] **Step 2: 寫回放測試**
+- [ ] **Step 1: 寫回放測試**
 
 ```java
 @Test
@@ -198,11 +213,11 @@ void replaysTeamChanges(CapturedOutput output) throws Exception {
 
 10-19 樣本仍有本次範圍外的未辨識行（`User not found`、`Match starts in …`、`Beatmap changed to: …`、`Host is changing map...` 等），所以該測試不檢查未辨識數量。
 
-- [ ] **Step 3: 跑測試** `./mvnw -pl bancho-match test -Dtest=MatchReplayIntegrationTest` → PASS（若失敗，修 Task 2 的規則，不要改樣本）。
+- [ ] **Step 2: 跑測試** `./mvnw -pl bancho-match test -Dtest=MatchReplayIntegrationTest` → PASS（若失敗，修 Task 2 的規則，不要改樣本）。
 
-- [ ] **Step 4: 更新 `bancho-match/AGENTS.md`**：`MatchEvent` 段落補「隊伍轉成 `Team`」；`MatchState` 段落補 `Slot.team`、`host` 與 Task 2 的狀態規則（換 slot 保留隊伍、host 離開清空、部分設定沿用、改成非隊伍模式清隊伍、改成隊伍模式不猜隊伍）；`!mp settings` 的隊伍模式 slot 行仍無樣本。
+- [ ] **Step 3: 更新 `bancho-match/AGENTS.md`**：`MatchEvent` 段落補「隊伍轉成 `Team`」；`MatchState` 段落補 `Slot.team`、`host` 與 Task 2 的狀態規則（換 slot 保留隊伍、host 離開清空、部分設定沿用、改成非隊伍模式清隊伍、改成隊伍模式不猜隊伍）；`!mp settings` 的隊伍模式 slot 行仍無樣本。
 
-- [ ] **Step 5: Commit** `git commit -am "test(match): 匯入 10-19、10-21 樣本並回放隊伍與 host"`
+- [ ] **Step 4: Commit** `git commit -am "test(match): 回放 10-19、10-21 樣本的隊伍與 host"`（只改既有檔案）
 
 ---
 
@@ -229,8 +244,8 @@ void replaysTeamChanges(CapturedOutput output) throws Exception {
     - `commands.team(List.of("green", "A"), 42L, null)` → `錯誤：用法：team <blue|red> <玩家目標…> [--room <房號>]`，不送出；`commands.team(List.of("red"), 42L, null)` 同一用法錯誤。
     - 未登入時回 `錯誤：請先 login`。
   - `ShellCompletionsTest`：
-    - 房 42 有 `PlayerJoined(42,"A",1,BLUE)`、`PlayerJoined(42,"B",3,RED)`、`PlayerJoined(42,"C",2,null)`、`HostChanged(42,"A")`，目前房間 42：`host` 補全值為 `A`、`B`、`C`（依 slot 排序），說明依序 `藍 · slot 1 · host`、`slot 2`、`紅 · slot 3`。
-    - `--room 43` 時列房 43 的成員（Review Focus 3）：`typing("host", "--room", "43", "")`。
+    - 房 42 有 `PlayerJoined(42,"A",1,BLUE)`、`PlayerJoined(42,"B",3,RED)`、`PlayerJoined(42,"C",2,null)`、`HostChanged(42,"A")`，目前房間 42：`host` 補全值依 slot 排序為 `A`、`C`、`B`，說明依序 `藍 · slot 1 · host`、`slot 2`、`紅 · slot 3`。
+    - 目前房間 42、房 43 另有成員 `X`（Review Focus 3）：`typing("host", "--room", "43", "")` 與 `typing("host", "--room=43", "")` 都只列 `X`；`team` 的成員位置同樣兩種寫法都測，且 `--room=43` 不佔位置參數（`typing("team", "--room=43", "")` 仍補 `blue`、`red`）。
     - 沒有目前房間或房間沒有成員 → 空清單。
     - `team` 補全：第 0 位置 `blue`、`red`；第 1 位置之後為房間成員。
 
@@ -241,7 +256,7 @@ void replaysTeamChanges(CapturedOutput output) throws Exception {
   - `MatchCommands.team(@Arguments List<String> words, @Option room, CommandContext)`：`@Command(name = "team", completionProvider = "teamCompletion", description = "把玩家換到藍隊或紅隊；用法見 team --help", help = InputGuard.TEAM_HELP)`；先 `InputGuard.rejectRoomAfterDoubleDash(words, "team")`，第一個字以 `Team.parse` 解析，失敗或沒有玩家時回 `guardedUsage(context, InputGuard.ANY, TEAM_USAGE)`，其餘 `InputGuard.join(words.subList(1, …))` 交給 `r.team(...)`。
   - `TEAM_HELP` 說明兩個例子：`team blue Tomari Mari`、`team red #2548278`，以及名稱以 `-` 開頭時的雙引號寫法（比照 `HOST_HELP`）。
   - `host` 的 `completionProvider` 改成 `memberCompletion`；`invite`、`addref` 不變。
-  - `ShellCompletions`：目標房間 = 命令字中 `--room` 後的數字，否則 `session.currentRoom()`（`Optional<Long>`）；以 `matchService.room(id)` 取狀態，依 slot 排序產生候選。
+  - `ShellCompletions`：目標房間 = 命令字中 `--room <數字>` 或 `--room=<數字>` 的數字（與 `InputGuard` 支援的寫法一致），否則 `session.currentRoom()`（`Optional<Long>`）；以 `matchService.room(id)` 取狀態，依 slot 排序產生候選。
   - 更新 `bancho-shell/AGENTS.md` 指令清單與補全段落。
 
 - [ ] **Step 4: 跑測試確認通過**（同 Step 2）→ PASS
@@ -338,4 +353,9 @@ void playersGroupsByTeam() {
 
 - [ ] **Step 5: 全部測試** `./mvnw test` → BUILD SUCCESS
 
-- [ ] **Step 6: Commit** `git commit -am "feat(shell): set 不帶參數時逐項提示"`
+- [ ] **Step 6: Commit**
+
+```bash
+git add bancho-shell/src/main/java/cc/alexlin7/bancho/shell/LinePrompt.java
+git commit -am "feat(shell): set 不帶參數時逐項提示"
+```

@@ -38,10 +38,10 @@ OAuth 綁定、Discord 權限表、持久化與重啟復原、稽核與人工復
 | --- | --- |
 | `Created the tournament match https://osu.ppy.sh/mp/<id> <房名>` | **已實測**（4 筆，含中文、日文房名），由 `BanchoBotParser` 解析 |
 | `Closed the match` | **已實測**（2 筆），解析為 `MatchClosed` |
-| `User not found: <name>` | **已實測**（3 筆，`#mp_` 頻道內）；樣本沒有記錄送出的指令，推測是 `!mp addref` 的回覆；parser 尚未解析 |
-| `You have too many referees! Remove some to add new ones.` | **新發現**，本文件未列；同一段樣本，推測同樣來自 `!mp addref`；parser 尚未解析 |
-| `Added <name> to the match referees`、`Removed <name> from the match referees` | 仍未實測 |
-| `No such channel` | 仍未實測 |
+| `User not found: <name>` | **已實測**（`#mp_` 頻道內）；2026-10-20 樣本記錄了送出的指令，確認是 `!mp addref` 的回覆：`addref alexlin7` → `User not found: alexlin7`；多目標寫在同一行（`addref Saru86 #3538446`、`addref #2548278 #3538446`）會把整串當成一個名字。10-19 另有不帶名稱的 `User not found`。parser 尚未解析 |
+| `You have too many referees! Remove some to add new ones.` | **已實測**：2026-10-20 對 `!mp addref alexlin86`（開房者自己）的回覆，之後同一房仍能再加入 3 位 referee，所以觸發條件不是人數上限，原因未確認；parser 尚未解析 |
+| `Added <name> to the match referees`、`Removed <name> from the match referees` | **已實測**（2026-10-20、10-21）。以 `#ID` 加入時回覆原樣為 `Added #2548278 to …`，同一 ID 重複加入仍回 `Added`；移除不是 referee 的人回 `<name> is not a match referee`；`!mp listrefs` 回 `Match referees:` 後每位一行。parser 尚未解析 |
+| `No such channel` | **已實測**：2026-10-20、10-21 各一次，原文 `:cho.ppy.sh 403 <nick> #mp_<id> :No such channel`，都出現在 `Closed the match` 之後約 1 秒。只證明關房後會出現，仍不足以建立「JOIN 失敗就代表已關房」的規則 |
 | 建房被拒、禁言系統訊息 | 仍無任何樣本；樣本檔會收集 Bancho 的 NOTICE 與數字回覆 |
 
 ## 目的與邊界

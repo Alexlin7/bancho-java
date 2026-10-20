@@ -14,7 +14,7 @@
 同時從樣本發現：
 
 - **TeamVs／TagTeamVs 房的成員追蹤是壞的**：進房訊息是 `Alexlin86 joined in slot 1 for team blue.`，現有規則 `(.+?) joined in slot (\d+)\.` 比對整行失敗，記成「未辨識」，玩家沒有進到 `MatchState.slots`。`Alexlin86 changed to Red`／`changed to Blue` 也未辨識。
-- **addref 多個目標是壞的**：`!mp addref Saru86 #3538446` → `User not found: Saru86 #3538446`；`!mp addref #2548278 #3538446` 也一樣。BanchoBot 一次只收一位。
+- **addref 多個目標是壞的**：`!mp addref Saru86 #3538446` → `User not found: Saru86 #3538446`；`!mp addref #2548278 #3538446` 也一樣。官方文件列有多目標語法，但這兩種實測寫法都失敗，因此統一逐位發送。
 - `Changed match settings to TagTeamVs`（只改隊伍模式時的回覆，10-19 樣本）沒有規則。
 - `became the host`、`Changed match host to …`（10-19 樣本）沒有規則，房間不知道誰是 host。
 
