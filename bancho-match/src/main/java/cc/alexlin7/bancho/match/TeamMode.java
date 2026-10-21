@@ -26,6 +26,10 @@ public enum TeamMode implements BanchoMode {
         return aliases;
     }
 
+    public boolean hasTeams() {
+        return this == TEAM_VS || this == TAG_TEAM_VS;
+    }
+
     public static Optional<TeamMode> parse(String text) {
         return BanchoMode.parse(text, values());
     }

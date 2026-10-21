@@ -8,6 +8,9 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import cc.alexlin7.bancho.irc.IrcMessage;
+import cc.alexlin7.bancho.match.Team;
+import cc.alexlin7.bancho.match.event.MatchEvent.HostChanged;
+import cc.alexlin7.bancho.match.event.MatchEvent.PlayerTeamChanged;
 import cc.alexlin7.bancho.match.preset.MatchPreset;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerInvited;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerJoined;
@@ -21,6 +24,15 @@ class KnownUsersTest {
 
     private void receive(String rawLine) {
         users.onMessage(IrcMessage.parse(rawLine).orElseThrow());
+    }
+
+    @Test
+    void hostAndTeamChangeNamesAreCollected() {
+        // 合成事件，只驗證名稱收集，不代表 parser 已辨識真實 IRC 格式。
+        users.onMatchEvent(new HostChanged(1, "New Host"));
+        users.onMatchEvent(new PlayerTeamChanged(1, "Team Player", Team.BLUE));
+
+        assertThat(users.all()).containsExactly("New Host", "Team Player");
     }
 
     @Test

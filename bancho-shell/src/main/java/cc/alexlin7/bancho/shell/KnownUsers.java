@@ -14,6 +14,8 @@ import cc.alexlin7.bancho.match.event.MatchEvent.PlayerInvited;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerJoined;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerMoved;
 import cc.alexlin7.bancho.match.event.MatchEvent.SlotStatus;
+import cc.alexlin7.bancho.match.event.MatchEvent.HostChanged;
+import cc.alexlin7.bancho.match.event.MatchEvent.PlayerTeamChanged;
 import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 
 /**
@@ -51,6 +53,8 @@ public class KnownUsers implements IrcMessageListener {
             case PlayerJoined joined -> add(joined.username());
             case PlayerMoved moved -> add(moved.username());
             case SlotStatus status -> add(status.username());
+            case HostChanged changed -> add(changed.username());
+            case PlayerTeamChanged changed -> add(changed.username());
             default -> {
                 // 其他事件沒有玩家名稱
             }

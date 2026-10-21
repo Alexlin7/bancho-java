@@ -57,6 +57,7 @@ JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行。
 
 - **`JLinePrompt`** 實作 `TextPrompt` 與 `SecretPrompt`：讀取期間關閉歷史展開（`!mp` 才不會被改寫）、引號與跳脫、Tab 補全與寫入指令歷史，讀完還原；空白輸入或 Ctrl+C 取消。非互動模式下兩者直接丟 `IllegalStateException`。
 - **`ShellCompletions`**：`CompletionProvider` bean（`roomCompletion`、`roomOptionCompletion`、`userCompletion`、`modsCompletion`、`makeCompletion`、`mapCompletion`、`setCompletion`、`mpCompletion`），名稱即 `@Command(completionProvider = ...)` 的值。Spring Shell 會自己補選項名稱，provider 只給值。`map`、`set` 的模式補全列出全部別名；`setCompletion` 依前兩個位置參數附編號說明；`mpCompletion` 只補第一個位置參數的未包裝子指令（已有專用指令的如 host 不列）。**`KnownUsers`** 收集房間事件、私訊與範本名單中的使用者名稱。JLine 對已輸入開引號的候選值會重複引號，因此使用者名稱補全暫不自動加引號，跳脫請手動輸入。
+  - `KnownUsers` 也收集 `HostChanged`、`PlayerTeamChanged` 的名稱；目前以合成事件驗證。隊伍、host 與部分設定的新 parser 規則仍待真實樣本，尚未接上真實 IRC，相關 session 回放仍 pending。
 - **`ShellLineEditing`**（BeanPostProcessor）：JLine 補全改為不分大小寫；parser 只把雙引號當引號（預設單引號也算，`say I'm ready` 會卡在等待補引號）。並把 `JLineInputProvider` 換成 **`InterruptAwareInputProvider`**：Spring Shell 預設按一次 Ctrl+C 就結束 shell，改成輸入到一半只清掉該行、空行按一次提示、2 秒內再按一次才離開（判斷在 `CtrlCGuard`）；Ctrl+D 仍直接離開。
 
 ## 輸出

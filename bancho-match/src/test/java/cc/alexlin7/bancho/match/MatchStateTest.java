@@ -27,8 +27,143 @@ import cc.alexlin7.bancho.match.event.MatchEvent.AllPlayersReady;
 import cc.alexlin7.bancho.match.event.MatchEvent.GameModeChanged;
 import cc.alexlin7.bancho.match.event.MatchEvent.MatchFinished;
 import cc.alexlin7.bancho.match.event.MatchEvent.PlayerFinished;
+import cc.alexlin7.bancho.match.event.MatchEvent;
+import cc.alexlin7.bancho.match.event.MatchEvent.HostChanged;
+import cc.alexlin7.bancho.match.event.MatchEvent.PlayerTeamChanged;
 
 class MatchStateTest {
+
+    // 下列隊伍、host 與部分設定案例直接建立合成事件，不驗證真實 IRC 格式。
+
+    @Test
+    void joinedWithTeamRecordsTeam() {
+        assertThat(initial.apply(new PlayerJoined(42, "A", 1, Team.BLUE)).slots())
+                .isEqualTo(Map.of(1, new Slot("A", null, null, Team.BLUE)));
+    }
+
+    @Test
+    void movedKeepsTeamAndDetails() {
+        MatchState state = initial.apply(new SlotStatus(42, 1, "Not Ready", 7L, "A"))
+                .apply(new PlayerTeamChanged(42, "A", Team.RED))
+                .apply(new PlayerMoved(42, "A", 3));
+
+        assertThat(state.slots()).isEqualTo(Map.of(3, new Slot("A", 7L, "Not Ready", Team.RED)));
+    }
+
+    @Test
+    void teamChangedUpdatesPlayerSlot() {
+        MatchState state = initial.apply(new PlayerJoined(42, "A", 1, Team.BLUE))
+                .apply(new PlayerTeamChanged(42, "A", Team.RED));
+
+        assertThat(state.slots().get(1).team()).isEqualTo(Team.RED);
+    }
+
+    @Test
+    void teamChangedForUnknownPlayerIsIgnored() {
+        assertThat(initial.apply(new PlayerTeamChanged(42, "A", Team.RED))).isEqualTo(initial);
+    }
+
+    @Test
+    void slotStatusKeepsSamePlayersTeamWhenMovingIntoOccupiedSlot() {
+        MatchState state = initial.apply(new PlayerJoined(42, "A", 1, Team.RED))
+                .apply(new PlayerJoined(42, "B", 2, Team.BLUE))
+                .apply(new SlotStatus(42, 2, "Ready", 7L, "A"));
+
+        assertThat(state.slots()).isEqualTo(Map.of(2, new Slot("A", 7L, "Ready", Team.RED)));
+    }
+
+    @Test
+    void slotStatusDoesNotGivePreviousOccupantsTeamToNewPlayer() {
+        MatchState state = initial.apply(new PlayerJoined(42, "A", 1, Team.BLUE))
+                .apply(new SlotStatus(42, 1, "Ready", 8L, "B"));
+
+        assertThat(state.slots()).isEqualTo(Map.of(1, new Slot("B", 8L, "Ready", null)));
+    }
+
+    @Test
+    void hostChangedRecordsHost() {
+        assertThat(initial.host()).isNull();
+        assertThat(initial.apply(new HostChanged(42, "A")).host()).isEqualTo("A");
+    }
+
+    @Test
+    void hostLeavingClearsHost() {
+        MatchState state = initial.apply(new PlayerJoined(42, "A", 1))
+                .apply(new HostChanged(42, "A")).apply(new PlayerLeft(42, "A"));
+
+        assertThat(state.host()).isNull();
+        assertThat(state.slots()).isEmpty();
+    }
+
+    @Test
+    void otherPlayerLeavingKeepsHost() {
+        MatchState state = initial.apply(new HostChanged(42, "A"))
+                .apply(new PlayerLeft(42, "B"));
+
+        assertThat(state.host()).isEqualTo("A");
+    }
+
+    @Test
+    void otherStateUpdatesKeepHost() {
+        MatchState state = MatchState.initial(null).apply(new HostChanged(42, "A"));
+        List<MatchEvent> events = List.of(new MatchCreated(42, "r"),
+                new PlayerJoined(42, "B", 1, Team.RED), new PlayerMoved(42, "B", 2),
+                new SlotStatus(42, 2, "Ready", 7L, "B"), new PlayerTeamChanged(42, "B", Team.BLUE),
+                new SettingsChanged(42, 4, "TeamVs", "ScoreV2"),
+                new BeatmapChanged(42, 1L, "map"), new ModsChanged(42, List.of("Hidden"), false),
+                new GameModeChanged(42, "CatchTheBeat"), new MatchClosed(42));
+
+        for (MatchEvent event : events) {
+            state = state.apply(event);
+            assertThat(state.host()).as("事件 %s 後保留 host", event).isEqualTo("A");
+        }
+    }
+
+    @Test
+    void partialSettingsKeepsKnownFields() {
+        MatchState state = initial.apply(new SettingsChanged(42, 4, "TeamVs", "ScoreV2"))
+                .apply(new SettingsChanged(42, null, "TagTeamVs", null));
+
+        assertThat(state.settings()).isEqualTo(new Settings(4, "TagTeamVs", "ScoreV2"));
+    }
+
+    @Test
+    void omittedTeamModeKeepsKnownMode() {
+        MatchState state = initial.apply(new SettingsChanged(42, 4, "TeamVs", "ScoreV2"))
+                .apply(new PlayerJoined(42, "A", 1, Team.BLUE))
+                .apply(new SettingsChanged(42, 8, null, null));
+
+        assertThat(state.settings()).isEqualTo(new Settings(8, "TeamVs", "ScoreV2"));
+        assertThat(state.slots().get(1).team()).isEqualTo(Team.BLUE);
+    }
+
+    @Test
+    void switchingToNonTeamModeClearsTeams() {
+        MatchState state = initial.apply(new PlayerJoined(42, "A", 1, Team.BLUE))
+                .apply(new SlotStatus(42, 1, "Ready", 7L, "A"))
+                .apply(new PlayerJoined(42, "B", 2, Team.RED))
+                .apply(new SettingsChanged(42, 2, "HeadToHead", "ScoreV2"));
+
+        assertThat(state.slots()).isEqualTo(Map.of(1, new Slot("A", 7L, "Ready"),
+                2, new Slot("B", null, null)));
+    }
+
+    @Test
+    void switchingToTeamModeKeepsUnknownTeams() {
+        MatchState state = initial.apply(new SettingsChanged(42, 2, "HeadToHead", "ScoreV2"))
+                .apply(new PlayerJoined(42, "A", 1))
+                .apply(new SettingsChanged(42, null, "TeamVs", null));
+
+        assertThat(state.slots().get(1).team()).isNull();
+    }
+
+    @Test
+    void unknownTeamModeKeepsTeams() {
+        MatchState state = initial.apply(new PlayerJoined(42, "A", 1, Team.BLUE))
+                .apply(new SettingsChanged(42, 4, "FutureMode", "ScoreV2"));
+
+        assertThat(state.slots().get(1).team()).isEqualTo(Team.BLUE);
+    }
 
     private final MatchState initial = MatchState.initial("r");
 
