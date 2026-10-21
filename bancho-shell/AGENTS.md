@@ -43,7 +43,7 @@ JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行。
 - `invite`、`host` 一次一位玩家（名稱可含空白）；`addref` 以空白分隔多個目標，每位各送一條指令、各印一行「已送出：」，含空白的名稱要改用 `#ID` 或網址。解析規則見 `bancho-match/AGENTS.md` 的 `PlayerTarget`。
 - `team` 一次換一位玩家的隊伍：顏色先寫（blue／red，不分大小寫），其餘文字合成完整玩家目標；送出時顏色放在目標之後。名稱以 `-` 開頭請用雙引號（`team red "-SH-" --room 42`），或在目前房間用 `team -- blue -SH-`；`--` 之後不能再加房間選項。
 - 官方文件列有 addref 多目標語法；設計計畫記載 10-20 實測「名稱＋#ID」「多個 #ID」合在一條都回 `User not found: <整串>`，因此統一逐位發送。原始 10-20/21 樣本與裁判 session 回放仍 pending，尚未以本地樣本驗證。
-- `set` 接受數字或 `TeamMode`／`ScoreMode` 別名；`catch` 等遊玩模式由 `map` 處理。
+- `set` 接受數字或 `TeamMode`／`ScoreMode` 別名；`catch` 等遊玩模式由 `map` 處理。三個位置參數全省略時以 **`LinePrompt`** 逐項提示隊伍模式、計分模式、人數，先通過輸入、登入與房間檢查，預設值來自提示前的同一份快照；已知值按 Enter 沿用，未知值按 Enter 或任一步 Ctrl+C／Ctrl+D 取消，全部完成才送一條指令。只給一或兩個參數仍回用法錯誤，不提示；提示中的模式與人數錯誤沿用單行寫法。
 - `msg` 後面的字全部是對象（osu! 名稱可以有空白），訊息一律以 **`TextPrompt`** 另外提示輸入；只打 `msg` 時連對象也提示。對象與訊息寫在同一行時無從判斷界線，`msg Minato Yukina 你好` 曾經把訊息送給 `Minato`，不要改回單行。
 - `mp <指令…> [--room <房號>]` 轉送未包裝的 `!mp` 子指令；開房請用 `make`，`mp password` 一律拒絕（密碼會留在指令歷史）。
 - `password` 先確定房間，再以 **`SecretPrompt`** 提示輸入（JLine 遮蔽、以 `*` 回顯，不寫入歷史）；`--clear` 移除密碼，密碼寫在指令裡會被拒絕。
@@ -57,7 +57,7 @@ JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行。
 
 ## 提示、補全與行編輯
 
-- **`JLinePrompt`** 實作 `TextPrompt` 與 `SecretPrompt`：讀取期間關閉歷史展開（`!mp` 才不會被改寫）、引號與跳脫、Tab 補全與寫入指令歷史，讀完還原；空白輸入或 Ctrl+C 取消。非互動模式下兩者直接丟 `IllegalStateException`。
+- **`JLinePrompt`** 實作 `TextPrompt`、`SecretPrompt` 與 `LinePrompt`：讀取期間關閉歷史展開（`!mp` 才不會被改寫）、引號與跳脫、Tab 補全與寫入指令歷史，讀完還原。`TextPrompt`／`SecretPrompt` 空白輸入取消；`LinePrompt` 空白 Enter 回 `Optional.of("")`，可區分沿用與取消。三者遇 Ctrl+C／Ctrl+D 回 empty，非互動模式直接丟 `IllegalStateException`。
 - **`ShellCompletions`**：`CompletionProvider` bean（`roomCompletion`、`roomOptionCompletion`、`userCompletion`、`memberCompletion`、`teamCompletion`、`modsCompletion`、`makeCompletion`、`mapCompletion`、`setCompletion`、`mpCompletion`），名稱即 `@Command(completionProvider = ...)` 的值。Spring Shell 會自己補選項名稱，provider 只給值。`host` 的 `memberCompletion` 只列目標房間成員，依 slot 排序，說明含已知隊伍、slot 與 host；目標先看 `--room <房號>`／`--room=<房號>`，否則用目前房間，無房間或成員時不補。`teamCompletion` 第一個位置補 blue／red，其後補同一目標房間成員；房間選項不佔位置。`invite`、`addref` 沿用全域已知使用者補全。`map`、`set` 的模式補全列出全部別名；`setCompletion` 依前兩個位置參數附編號說明；`mpCompletion` 只補第一個位置參數的未包裝子指令（已有專用指令的如 host、team 不列）。**`KnownUsers`** 收集房間事件、私訊與範本名單中的使用者名稱。JLine 對已輸入開引號的候選值會重複引號，因此使用者名稱補全暫不自動加引號，跳脫請手動輸入。
   - `KnownUsers` 也收集 `HostChanged`、`PlayerTeamChanged` 的名稱；目前以合成事件驗證。隊伍、host 與部分設定的新 parser 規則仍待真實樣本，尚未接上真實 IRC，相關 session 回放仍 pending。
 - **`ShellLineEditing`**（BeanPostProcessor）：JLine 補全改為不分大小寫；parser 只把雙引號當引號（預設單引號也算，`say I'm ready` 會卡在等待補引號）。並把 `JLineInputProvider` 換成 **`InterruptAwareInputProvider`**：Spring Shell 預設按一次 Ctrl+C 就結束 shell，改成輸入到一半只清掉該行、空行按一次提示、2 秒內再按一次才離開（判斷在 `CtrlCGuard`）；Ctrl+D 仍直接離開。

@@ -99,6 +99,18 @@ class ShellCommandParsingTest {
     }
 
     @Test
+    void bareSetRequiresInteractivePromptAndValidatesInputFirst() throws Exception {
+        assertThat(run("set --room 42")).contains("錯誤：非互動模式無法提示輸入，請在互動 shell 中使用");
+        assertThat(run("set --rom 42")).contains("不認得的選項：--rom");
+        assertThat(run("set teamvs --room 42")).contains("錯誤：用法：set");
+        assertThat(run("set teamvs v2 --room 42")).contains("錯誤：用法：set");
+        assertThat(run("set \"\" --room 42")).contains("錯誤：用法：set");
+        assertThat(run("set \"\" \"\" --room 42")).contains("錯誤：用法：set");
+        assertThat(run("set teamvs v2 8 extra --room 42")).contains("多餘的參數：extra");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void passwordInNonInteractiveModeIsAnError() throws Exception {
         assertThat(run("password --room 42")).contains("錯誤：非互動模式無法輸入密碼");
         run("password --clear --room 42");
@@ -308,8 +320,8 @@ class ShellCommandParsingTest {
     }
 
     @Test
-    void missingSetArgumentsShowUsageInsteadOfPrimitiveError() throws Exception {
-        for (String command : List.of("set", "set 2", "set --room 42 2", "set 0 3 --room 42")) {
+    void partialSetArgumentsShowUsageInsteadOfPrimitiveError() throws Exception {
+        for (String command : List.of("set 2", "set --room 42 2", "set 0 3 --room 42")) {
             assertThat(run(command)).contains("錯誤：用法：set").doesNotContain("primitive");
         }
         assertThat(run("map --room 42")).contains("錯誤：用法：map");

@@ -1,6 +1,7 @@
 package cc.alexlin7.bancho.shell;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -16,6 +17,7 @@ import org.jline.terminal.Terminal;
 import org.jline.terminal.impl.DumbTerminal;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
 class JLinePromptTest {
 
@@ -110,5 +112,44 @@ class JLinePromptTest {
     @Test
     void blankTextCancels() throws IOException {
         assertThat(JLinePrompt.text(readerWithInput("   \r")).read("訊息：")).isEmpty();
+    }
+
+    @Test
+    void blankLineKeepsEmptyAnswer() throws IOException {
+        assertThat(JLinePrompt.line(readerWithInput("   \r")).read("模式：")).contains("");
+    }
+
+    @Test
+    void lineStripsAnswerAndRestoresReaderSettings() throws IOException {
+        LineReader reader = shellLikeReaderWithInput("  teamvs  \r");
+        Parser parser = reader.getParser();
+        assertThat(JLinePrompt.line(reader).read("模式：")).contains("teamvs");
+        assertThat(reader.getParser()).isSameAs(parser);
+        assertThat(reader.getHistory().size()).isOne();
+        assertThat(reader.getVariable(LineReader.DISABLE_HISTORY)).isNull();
+        assertThat(reader.isSet(LineReader.Option.DISABLE_EVENT_EXPANSION)).isFalse();
+    }
+
+    @Test
+    void endOfLineInputCancels() throws IOException {
+        assertThat(JLinePrompt.line(readerWithInput("")).read("模式：")).isEmpty();
+    }
+
+    @Test
+    void interruptedLineInputCancelsAndRestoresSettings() throws IOException {
+        LineReader reader = shellLikeReaderWithInput("\u0003");
+        Parser parser = reader.getParser();
+        assertThat(JLinePrompt.line(reader).read("模式：")).isEmpty();
+        assertThat(reader.getParser()).isSameAs(parser);
+        assertThat(reader.getVariable(LineReader.DISABLE_HISTORY)).isNull();
+        assertThat(reader.isSet(LineReader.Option.DISABLE_EVENT_EXPANSION)).isFalse();
+    }
+
+    @Test
+    void nonInteractiveLinePromptRejectsReading() {
+        LinePrompt prompt = new ShellConfiguration().linePrompt(
+                new StaticListableBeanFactory().getBeanProvider(LineReader.class), false);
+        assertThatThrownBy(() -> prompt.read("模式：")).isInstanceOf(IllegalStateException.class)
+                .hasMessage("非互動模式無法提示輸入，請在互動 shell 中使用");
     }
 }

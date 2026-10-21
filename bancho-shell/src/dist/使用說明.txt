@@ -31,6 +31,9 @@ bancho-shell 測試版使用說明
   invite 玩家名稱             邀請玩家
   invite #2548278              用玩家 ID 邀請（ID 前面要有 #）
   host #2548278                把房主交給這位玩家
+  team blue #2548278           把這位玩家換到藍隊（red 為紅隊）
+  players                     查看目前房間的成員名單
+  set                         依提示逐項設定隊伍、計分、人數
   set teamvs v2 4              紅藍隊對抗、ScoreV2、4 人
   map 1502772                 換圖（beatmap id）
   mods HD HR                  設定 mod
@@ -39,7 +42,8 @@ bancho-shell 測試版使用說明
 
 玩家名稱與 ID：
   invite 一次邀請一位玩家，多個 #ID 或網址請分別執行；含空白的完整名稱仍是同一位玩家。
-  invite、host、addref 接受玩家名稱、#ID，或個人頁網址（https://osu.ppy.sh/users/2548278）。
+  invite、host、team、addref 接受玩家名稱、#ID，或個人頁網址（https://osu.ppy.sh/users/2548278）。
+  team 的顏色放第一位，例如 team blue Tomari Mari、team red #2548278；一次換一位玩家。
   網址可省略 https://，也可帶 /osu、/taiko、/fruits、/mania，例如 osu.ppy.sh/users/2548278/fruits。
   /users/Alexlin86 這種名稱型網址不支援；請直接輸入玩家名稱，或使用含數字 ID 的個人頁網址。
   addref 接受多個目標，目標之間以空白分隔；含空白的名字請改用 #ID 或網址，避免被拆成不同玩家。
@@ -49,6 +53,9 @@ bancho-shell 測試版使用說明
   在目前房間也能用 host -- -SH-；-- 後面不能再放 --room。
 
 set <隊伍模式> <計分模式> <人數 1–16>（不分大小寫，Tab 可補全）：
+  只打 set 會依序提示隊伍模式、計分模式、人數，Enter 沿用提示中的目前設定。
+  目前值未知時按 Enter 取消；任一步按 Ctrl+C 或 Ctrl+D 也會取消，全部完成才送出設定。
+  也可在同一行填完三個參數，例如 set teamvs v2 4；只填一或兩個參數會顯示用法。
   隊伍 0：h2h / headtohead             個人混戰
   隊伍 1：tag / tagteam / tagcoop      輪流擊打
   隊伍 2：teamvs                       紅藍隊對抗
@@ -65,6 +72,8 @@ set <隊伍模式> <計分模式> <人數 1–16>（不分大小寫，Tab 可補
 
 其他常用指令：
   rooms     列出開著的房間、還在等回覆的開房請求，以及已用名額（每個帳號最多 4 間）
+  players   列出目前房間的成員（可用 players --room 房號 指定房間）
+            已知隊伍模式依藍隊、紅隊分組，房主加 ★；名單可能與遊戲內不同步
   say 文字  在房間裡說話
   msg 名稱  私訊（訊息會另外提示輸入）
   help      列出所有指令；help make 看單一指令的說明
@@ -80,6 +89,7 @@ set <隊伍模式> <計分模式> <人數 1–16>（不分大小寫，Tab 可補
 已知限制：
   - 斷線期間在遊戲裡被關掉的房間，程式可能不知道，會一直佔名額；重開程式就會清掉。
   - 程式只記得這次執行開的房間，重開後要用 attach 房號 接手還開著的房間。
+  - 新的隊伍與房主事件尚未接上真實 IRC parser；players 的隊伍、★ 與設定預設值可能不完整，仍需下方樣本補齊解析。
 
 
 四、打完之後請回傳
@@ -87,6 +97,12 @@ set <隊伍模式> <計分模式> <人數 1–16>（不分大小寫，Tab 可補
 把整個 logs 資料夾壓縮後傳給我。裡面有：
   - bancho.log：程式的執行紀錄（錯誤、例外）。
   - samples-日期.irc：給我們補解析規則用的樣本。
+
+請特別幫忙收集這幾種回覆：
+  - 在 TeamVs 房間有玩家時送出 settings，保留 BanchoBot 的 slot 原文（包含隊伍標記）。
+  - 用 team blue 玩家／team red 玩家 換隊，保留 !mp team 的 BanchoBot 回覆。
+  - 指定房主後讓該房主離房，保留房主離房前後的 BanchoBot 訊息。
+這些原文將用來補 parser 與回放測試；目前尚未完成真實隊伍、房主事件的解析。
 
 樣本檔「會」記下：
   - BanchoBot 的訊息（開房、換圖、玩家進出、比賽結果等）

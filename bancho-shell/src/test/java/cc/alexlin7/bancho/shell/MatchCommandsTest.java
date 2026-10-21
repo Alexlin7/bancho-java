@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -112,6 +114,9 @@ class MatchCommandsTest {
     private final ShellSession session = new ShellSession();
     private final List<String> printed = Collections.synchronizedList(new ArrayList<>());
     private final List<String> prompts = new ArrayList<>();
+    private final List<String> settingPrompts = new ArrayList<>();
+    private final Deque<Optional<String>> settingAnswers = new ArrayDeque<>();
+    private Runnable onSettingPrompt = () -> { };
     private Optional<String> typed = Optional.empty();
     private IrcConnectionState connection = IrcConnectionState.REGISTERED;
     private final MatchCommands commands = new MatchCommands(matchService, session, printed::add,
@@ -120,6 +125,11 @@ class MatchCommandsTest {
             prompt -> {
                 prompts.add(prompt);
                 return typed;
+            },
+            prompt -> {
+                settingPrompts.add(prompt);
+                onSettingPrompt.run();
+                return settingAnswers.removeFirst();
             },
             new LoginGuard(() -> connection));
 
@@ -394,12 +404,157 @@ class MatchCommandsTest {
         sender.calls.clear();
         String setUsage = "錯誤：用法：set <隊伍模式：h2h/tag/teamvs/tagvs 或 0–3> "
                 + "<計分模式：score/accuracy/combo/scorev2 或 0–3> <人數> [--room <房號>]；例如 set teamvs v2 4";
-        assertThat(commands.set(null, null, null, 42L, null)).isEqualTo(setUsage);
         assertThat(commands.set("2", null, null, 42L, null)).isEqualTo(setUsage);
         assertThat(commands.set("0", "3", null, 42L, null)).isEqualTo(setUsage);
+        assertThat(commands.set("", "", "", 42L, null)).isEqualTo(setUsage);
         assertThat(commands.map(null, null, 42L, null)).isEqualTo("錯誤：用法：map <beatmap id> [模式] [--room <房號>]");
         assertThat(commands.attach(null, null)).isEqualTo("錯誤：用法：attach <房號>");
         assertThat(commands.use(null, null)).isEqualTo("錯誤：用法：use <房號>");
+        assertThat(sender.calls).isEmpty();
+        assertThat(settingPrompts).isEmpty();
+    }
+
+    private void knownSettings() {
+        matchService.attach(42);
+        matchService.onMatchEvent(new SettingsChanged(42, 4, "TeamVs", "ScoreV2"));
+        sender.calls.clear();
+    }
+
+    private void answerSettings(String... answers) {
+        for (String answer : answers) {
+            settingAnswers.add(Optional.of(answer));
+        }
+    }
+
+    @Test
+    void setPromptsInOrderAndKeepsKnownScore() {
+        knownSettings();
+        answerSettings("teamvs", "", "8");
+        assertThat(commands.set(null, null, null, 42L, null)).isEqualTo("已送出：!mp set 2 3 8");
+        assertThat(settingPrompts).containsExactly(
+                "隊伍模式（h2h / tag / teamvs / tagvs，Enter 維持 TeamVs）：",
+                "計分模式（score / accuracy / combo / scorev2，Enter 維持 ScoreV2）：",
+                "人數（1–16，Enter 維持 4）：");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp set 2 3 8");
+    }
+
+    @Test
+    void setAllEnterKeepsKnownSettings() {
+        knownSettings();
+        session.use(42);
+        answerSettings("", "", "");
+        assertThat(commands.set(null, null, null, null, null)).isEqualTo("已送出：!mp set 2 3 4");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp set 2 3 4");
+    }
+
+    @Test
+    void setUnknownScoreEnterCancelsAfterKeepingKnownTeam() {
+        matchService.attach(42);
+        matchService.onMatchEvent(new SettingsChanged(42, null, "TagTeamVs", null));
+        sender.calls.clear();
+        answerSettings("", "");
+        assertThat(commands.set(null, null, null, 42L, null)).isEqualTo("已取消，房間設定沒有變更");
+        assertThat(settingPrompts).containsExactly(
+                "隊伍模式（h2h / tag / teamvs / tagvs，Enter 維持 TagTeamVs）：",
+                "計分模式（score / accuracy / combo / scorev2）：");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void setUnknownFieldsEnterCancelsWithoutSending() {
+        matchService.attach(42);
+        sender.calls.clear();
+        answerSettings("");
+        assertThat(commands.set(null, null, null, 42L, null)).isEqualTo("已取消，房間設定沒有變更");
+        assertThat(settingPrompts).containsExactly("隊伍模式（h2h / tag / teamvs / tagvs）：");
+        settingPrompts.clear();
+        answerSettings("teamvs", "v2", "");
+        assertThat(commands.set(null, null, null, 42L, null)).isEqualTo("已取消，房間設定沒有變更");
+        assertThat(settingPrompts.getLast()).isEqualTo("人數（1–16）：");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void setCancellationAtEachStepStopsPromptsAndSendsNothing() {
+        knownSettings();
+        for (int step = 0; step < 3; step++) {
+            settingPrompts.clear();
+            for (int preceding = 0; preceding < step; preceding++) {
+                answerSettings("");
+            }
+            settingAnswers.add(Optional.empty());
+            assertThat(commands.set(null, null, null, 42L, null)).isEqualTo("已取消，房間設定沒有變更");
+            assertThat(settingPrompts).hasSize(step + 1);
+            assertThat(sender.calls).isEmpty();
+        }
+    }
+
+    @Test
+    void setInvalidTeamStopsBeforeNextPrompt() {
+        knownSettings();
+        answerSettings("xyz");
+        assertThat(commands.set(null, null, null, 42L, null))
+                .isEqualTo("錯誤：不認得的隊伍模式：xyz（可用 h2h、tag、teamvs、tagvs 或 0–3）");
+        assertThat(settingPrompts).hasSize(1);
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void setInvalidScoreStopsBeforeSizePrompt() {
+        knownSettings();
+        answerSettings("", "xyz");
+        assertThat(commands.set(null, null, null, 42L, null))
+                .isEqualTo("錯誤：不認得的計分模式：xyz（可用 score、accuracy、combo、scorev2 或 0–3）");
+        assertThat(settingPrompts).hasSize(2);
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void setPromptSizeErrorsMatchSingleLineErrors() {
+        knownSettings();
+        answerSettings("teamvs", "v2", "abc");
+        String usage = "錯誤：用法：set <隊伍模式：h2h/tag/teamvs/tagvs 或 0–3> "
+                + "<計分模式：score/accuracy/combo/scorev2 或 0–3> <人數> [--room <房號>]；例如 set teamvs v2 4";
+        assertThat(commands.set(null, null, null, 42L, null)).isEqualTo(usage);
+        assertThat(commands.set("teamvs", "v2", "abc", 42L, null)).isEqualTo(usage);
+        answerSettings("teamvs", "v2", "20");
+        assertThat(commands.set(null, null, null, 42L, null)).isEqualTo("錯誤：size 必須介於 1 到 16：20");
+        assertThat(commands.set("teamvs", "v2", "20", 42L, null)).isEqualTo("錯誤：size 必須介於 1 到 16：20");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void setUsesOneSnapshotEvenIfSettingsChangeDuringPrompt() {
+        knownSettings();
+        onSettingPrompt = () -> matchService.onMatchEvent(new SettingsChanged(42, 16, "HeadToHead", "Score"));
+        answerSettings("", "", "");
+        assertThat(commands.set(null, null, null, 42L, null)).isEqualTo("已送出：!mp set 2 3 4");
+        assertThat(settingPrompts.get(1)).contains("Enter 維持 ScoreV2");
+        assertThat(settingPrompts.getLast()).contains("Enter 維持 4");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp set 2 3 4");
+    }
+
+    @Test
+    void setSingleLineDoesNotPrompt() {
+        knownSettings();
+        assertThat(commands.set("teamvs", "v2", "8", 42L, null)).isEqualTo("已送出：!mp set 2 3 8");
+        assertThat(settingPrompts).isEmpty();
+    }
+
+    @Test
+    void setChecksRoomAndLoginBeforePrompting() {
+        assertThat(commands.set(null, null, null, null, null)).isEqualTo(NO_ROOM);
+        assertThat(commands.set(null, null, null, 999L, null)).isEqualTo("找不到房間：999");
+        knownSettings();
+        connection = IrcConnectionState.IDLE;
+        assertThat(commands.set(null, null, null, 42L, null)).contains("請先 login");
+        connection = IrcConnectionState.CONNECTING;
+        assertThat(commands.set(null, null, null, 42L, null)).contains("正在連線");
+        connection = IrcConnectionState.REGISTERED;
+        matchService.onMatchEvent(new MatchClosed(42));
+        sender.calls.clear();
+        assertThat(commands.set(null, null, null, 42L, null)).isEqualTo("房間已關閉：#mp_42");
+        assertThat(settingPrompts).isEmpty();
         assertThat(sender.calls).isEmpty();
     }
 

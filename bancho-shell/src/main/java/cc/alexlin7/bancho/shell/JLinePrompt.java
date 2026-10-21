@@ -24,18 +24,24 @@ final class JLinePrompt {
 
     private final LineReader reader;
     private final Character mask;
+    private final boolean acceptBlank;
 
-    private JLinePrompt(LineReader reader, Character mask) {
+    private JLinePrompt(LineReader reader, Character mask, boolean acceptBlank) {
         this.reader = reader;
         this.mask = mask;
+        this.acceptBlank = acceptBlank;
     }
 
     static SecretPrompt secret(LineReader reader) {
-        return new JLinePrompt(reader, MASK)::read;
+        return new JLinePrompt(reader, MASK, false)::read;
     }
 
     static TextPrompt text(LineReader reader) {
-        return new JLinePrompt(reader, null)::read;
+        return new JLinePrompt(reader, null, false)::read;
+    }
+
+    static LinePrompt line(LineReader reader) {
+        return new JLinePrompt(reader, null, true)::read;
     }
 
     private Optional<String> read(String prompt) {
@@ -52,7 +58,7 @@ final class JLinePrompt {
         }
         try {
             String line = reader.readLine(prompt, mask);
-            return line == null || line.isBlank() ? Optional.empty() : Optional.of(line.strip());
+            return line == null || (!acceptBlank && line.isBlank()) ? Optional.empty() : Optional.of(line.strip());
         } catch (UserInterruptException | EndOfFileException _) {
             return Optional.empty();
         } finally {

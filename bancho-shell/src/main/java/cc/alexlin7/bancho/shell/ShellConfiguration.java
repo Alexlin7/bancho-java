@@ -64,6 +64,18 @@ class ShellConfiguration {
         return prompt -> JLinePrompt.text(lineReader.getObject()).read(prompt);
     }
 
+    /** 同 {@link #textPrompt}，但空白 Enter 保留為空字串，供逐項設定沿用目前值。 */
+    @Bean
+    LinePrompt linePrompt(ObjectProvider<LineReader> lineReader,
+                          @Value("${spring.shell.interactive.enabled:true}") boolean interactive) {
+        if (!interactive) {
+            return prompt -> {
+                throw new IllegalStateException("非互動模式無法提示輸入，請在互動 shell 中使用");
+            };
+        }
+        return prompt -> JLinePrompt.line(lineReader.getObject()).read(prompt);
+    }
+
     /**
      * 把 BanchoBot 與 Bancho 系統訊息寫進 log 資料夾的 {@code samples-<日期>.irc}，供測試者回傳補樣本。
      * 預設開啟；{@code bancho.samples.enabled=false} 關閉（測試就是這樣設定）。

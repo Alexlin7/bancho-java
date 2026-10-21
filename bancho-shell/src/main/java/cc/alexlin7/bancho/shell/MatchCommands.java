@@ -48,6 +48,7 @@ public class MatchCommands {
             + "<計分模式：score/accuracy/combo/scorev2 或 0–3> <人數> [--room <房號>]；例如 set teamvs v2 4";
     private static final String MAP_USAGE = USAGE + "map <beatmap id> [模式] [--room <房號>]";
     private static final String TEAM_USAGE = USAGE + "team <blue|red> <玩家目標…> [--room <房號>]";
+    private static final String SET_CANCELLED = "已取消，房間設定沒有變更";
 
     private final MatchService matchService;
     private final ShellSession session;
@@ -55,16 +56,19 @@ public class MatchCommands {
     private final RoomResolver rooms;
     private final MatchPresetProperties presets;
     private final SecretPrompt secretPrompt;
+    private final LinePrompt linePrompt;
     private final LoginGuard loginGuard;
     private final AtomicReference<CompletableFuture<MatchRoom>> lastMake =
             new AtomicReference<>(CompletableFuture.completedFuture(null));
 
     public MatchCommands(MatchService matchService, ShellSession session, ShellOutput out,
-                         MatchPresetProperties presets, SecretPrompt secretPrompt, LoginGuard loginGuard) {
+                         MatchPresetProperties presets, SecretPrompt secretPrompt, LinePrompt linePrompt,
+                         LoginGuard loginGuard) {
         this.loginGuard = loginGuard;
         this.matchService = matchService;
         this.presets = presets;
         this.secretPrompt = secretPrompt;
+        this.linePrompt = linePrompt;
         this.session = session;
         this.out = out;
         this.rooms = new RoomResolver(matchService, session);
@@ -301,17 +305,69 @@ public class MatchCommands {
                       @Argument(index = 2, description = "人數") String sizeText,
                       @Option(longName = ROOM, description = ROOM_OPTION) Long room,
                       CommandContext context) {
+        // Spring Shell 將省略的 String 參數綁成空字串；有 context 時以原始位置參數區分省略與明確輸入。
+        boolean noArguments = context == null
+                ? teamModeText == null && scoreModeText == null && sizeText == null
+                : context.parsedInput().arguments().isEmpty();
+        if (noArguments) {
+            return guardedOnRoom(context, 3, room, this::promptSettings);
+        }
         Integer size = parseInt(sizeText);
         if (teamModeText == null || teamModeText.isBlank() || scoreModeText == null || scoreModeText.isBlank() || size == null) {
             return guardedUsage(context, 3, SET_USAGE);
         }
         return guardedOnRoom(context, 3, room, r -> {
-            TeamMode teamMode = TeamMode.parse(teamModeText).orElseThrow(() -> new IllegalArgumentException(
-                    "不認得的隊伍模式：" + teamModeText + "（可用 h2h、tag、teamvs、tagvs 或 0–3）"));
-            ScoreMode scoreMode = ScoreMode.parse(scoreModeText).orElseThrow(() -> new IllegalArgumentException(
-                    "不認得的計分模式：" + scoreModeText + "（可用 score、accuracy、combo、scorev2 或 0–3）"));
+            TeamMode teamMode = parseTeamMode(teamModeText);
+            ScoreMode scoreMode = parseScoreMode(scoreModeText);
             return SENT + r.set(teamMode.id(), scoreMode.id(), size);
         });
+    }
+
+    private String promptSettings(MatchRoom room) {
+        // 提示期間仍會收到 IRC 事件；三個預設值一律取自同一份快照。
+        MatchState.Settings settings = room.state().settings();
+        TeamMode currentTeam = TeamMode.parse(settings.teamMode()).orElse(null);
+        ScoreMode currentScore = ScoreMode.parse(settings.winCondition()).orElse(null);
+        Integer currentSize = settings.size();
+
+        Optional<String> teamAnswer = linePrompt.read(settingPrompt("隊伍模式（h2h / tag / teamvs / tagvs",
+                currentTeam == null ? null : settings.teamMode()));
+        if (teamAnswer.isEmpty() || (teamAnswer.get().isEmpty() && currentTeam == null)) {
+            return SET_CANCELLED;
+        }
+        TeamMode team = teamAnswer.get().isEmpty() ? currentTeam : parseTeamMode(teamAnswer.get());
+
+        Optional<String> scoreAnswer = linePrompt.read(settingPrompt("計分模式（score / accuracy / combo / scorev2",
+                currentScore == null ? null : settings.winCondition()));
+        if (scoreAnswer.isEmpty() || (scoreAnswer.get().isEmpty() && currentScore == null)) {
+            return SET_CANCELLED;
+        }
+        ScoreMode score = scoreAnswer.get().isEmpty() ? currentScore : parseScoreMode(scoreAnswer.get());
+
+        Optional<String> sizeAnswer = linePrompt.read(settingPrompt("人數（1–16",
+                currentSize == null ? null : currentSize.toString()));
+        if (sizeAnswer.isEmpty() || (sizeAnswer.get().isEmpty() && currentSize == null)) {
+            return SET_CANCELLED;
+        }
+        Integer size = sizeAnswer.get().isEmpty() ? currentSize : parseInt(sizeAnswer.get());
+        if (size == null) {
+            return SET_USAGE;
+        }
+        return SENT + room.set(team.id(), score.id(), size);
+    }
+
+    private static String settingPrompt(String label, String current) {
+        return label + (current == null ? "" : "，Enter 維持 " + current) + "）：";
+    }
+
+    private static TeamMode parseTeamMode(String text) {
+        return TeamMode.parse(text).orElseThrow(() -> new IllegalArgumentException(
+                "不認得的隊伍模式：" + text + "（可用 h2h、tag、teamvs、tagvs 或 0–3）"));
+    }
+
+    private static ScoreMode parseScoreMode(String text) {
+        return ScoreMode.parse(text).orElseThrow(() -> new IllegalArgumentException(
+                "不認得的計分模式：" + text + "（可用 score、accuracy、combo、scorev2 或 0–3）"));
     }
 
     @Command(name = "start", group = GROUP, completionProvider = "roomOptionCompletion",

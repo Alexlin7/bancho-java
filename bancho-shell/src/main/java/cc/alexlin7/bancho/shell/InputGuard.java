@@ -68,6 +68,8 @@ final class InputGuard {
 
     static final String SET_HELP = """
             set <隊伍模式> <計分模式> <人數 1–16> [--room <房號>]
+            只打 set 會逐項提示，Enter 沿用目前設定；目前值未知時 Enter 取消，Ctrl+C 隨時取消。
+            三項都填妥才送出；也可以直接在一行填完三個參數。
             模式不分大小寫，也接受原本的數字 0–3：
               隊伍 0：h2h / headtohead（個人混戰）
               隊伍 1：tag / tagteam / tagcoop（輪流擊打）
