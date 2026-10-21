@@ -18,7 +18,7 @@ class MatchRoomPresetTest {
 
     @Test
     void appliesAllFieldsInOrder() {
-        room.apply(new MatchPreset("0", "3", 2, "abc", List.of("HD", "HR"), 1502772L, List.of("Ref1"),
+        room.apply(new MatchPreset("0", "3", 2, "abc", List.of("HD", "HR"), 1502772L, List.of("A", "#2"),
                 List.of("Alexlin86", "Friend"), null));
 
         assertThat(sender.calls).containsExactly(
@@ -26,7 +26,8 @@ class MatchRoomPresetTest {
                 "msg #mp_123 !mp password abc",
                 "msg #mp_123 !mp mods HD HR",
                 "msg #mp_123 !mp map 1502772",
-                "msg #mp_123 !mp addref Ref1",
+                "msg #mp_123 !mp addref A",
+                "msg #mp_123 !mp addref #2",
                 "msg #mp_123 !mp invite Alexlin86",
                 "msg #mp_123 !mp invite Friend");
     }
@@ -178,6 +179,7 @@ class MatchRoomPresetTest {
     void presetRefereesUseSameProfileResolutionAsCommands() {
         room.apply(new MatchPreset("0", "3", 2, null, null, null,
                 List.of("https://osu.ppy.sh/users/2548278/fruits", "#42"), null, null));
-        assertThat(sender.calls).containsExactly("msg #mp_123 !mp set 0 3 2", "msg #mp_123 !mp addref #2548278 #42");
+        assertThat(sender.calls).containsExactly("msg #mp_123 !mp set 0 3 2",
+                "msg #mp_123 !mp addref #2548278", "msg #mp_123 !mp addref #42");
     }
 }

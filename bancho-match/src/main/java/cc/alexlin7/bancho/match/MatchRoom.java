@@ -107,9 +107,11 @@ public final class MatchRoom {
         command(passwordCommand(password));
     }
 
-    /** 新增裁判，回傳實際入列指令；含空白名稱請改用 #ID 或個人頁網址。 */
-    public String addRef(String... usernames) {
-        return command(addRefCommand(usernames));
+    /** 每位裁判各送一條，依輸入順序回傳實際入列指令；含空白名稱請改用 #ID 或個人頁網址。 */
+    public List<String> addRef(String... usernames) {
+        List<String> commands = addRefCommands(usernames);
+        commands.forEach(this::command);
+        return commands;
     }
 
     /**
@@ -145,7 +147,7 @@ public final class MatchRoom {
             commands.add(mapCommand(preset.beatmap(), mode));
         }
         if (!preset.referees().isEmpty()) {
-            commands.add(presetField("referees", () -> addRefCommand(preset.referees().toArray(String[]::new))));
+            commands.addAll(presetField("referees", () -> addRefCommands(preset.referees().toArray(String[]::new))));
         }
         preset.invite().forEach(username -> commands.add(presetField("invite", () -> inviteCommand(username))));
         return commands;
@@ -234,16 +236,16 @@ public final class MatchRoom {
         return password == null || password.isBlank() ? MP + "password" : MP + "password " + password.strip();
     }
 
-    private static String addRefCommand(String... usernames) {
+    private static List<String> addRefCommands(String... usernames) {
         if (usernames.length == 0) {
             throw new IllegalArgumentException("至少要指定一位裁判");
         }
-        // 多位裁判以空白分隔，含空白的名稱使用 #ID 或網址，避免被拆成不同玩家。
+        // 先檢查所有目標，再逐位送出；含空白的名稱使用 #ID 或網址。
         List<String> names = Arrays.stream(usernames).map(PlayerTarget::commandArgument).toList();
         names.stream().filter(name -> name.codePoints().anyMatch(Character::isWhitespace)).findFirst().ifPresent(name -> {
             throw new IllegalArgumentException("addref 的名稱不可含空白：" + name + "；請改用 #ID 或個人頁網址");
         });
-        return MP + "addref " + String.join(" ", names);
+        return names.stream().map(name -> MP + "addref " + name).toList();
     }
 
     private static void requireRange(String field, int value, int min, int max) {

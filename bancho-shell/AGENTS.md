@@ -39,7 +39,8 @@ JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行。
 - **`MatchCommands`**：`make <房名…> [--preset]`、`attach`、`use`、`rooms`（含建房中、結果未知的請求與 `名額 n/4`）、`drop <房名…>`、`invite <玩家目標…>`、`host <玩家目標…>`、`addref <玩家目標…>`、`map <beatmapId> [模式]`、`mods`、`set`、`start [秒]`、`timer [秒]`、`abort`、`close`、`settings`、`password [--clear]`、`mp`。**`ChatCommands`**：`say`、`msg`。**`LoginCommands`**：`login`。內建 `help`、`quit`。
 - 房間指令預設作用在 **`ShellSession`** 的目前房間，`--room <房號>` 可指定其他房間；由 `RoomResolver` 解析房間，參數錯誤一律轉成 `錯誤：...` 文字，不讓例外冒到 shell。
 - `make` 逾時時印出「開房結果未知」並提示 `drop`；晚到的成功回覆標註「晚到的回覆」並套用範本，但**不切換目前房間**（使用者可能已在另一間房主持），提示以 `use <房號>` 切換；被 drop 的請求不印任何訊息。
-- `invite`、`host` 一次一位玩家（名稱可含空白）；`addref` 以空白分隔多個目標，含空白的名稱要改用 `#ID` 或網址。解析規則見 `bancho-match/AGENTS.md` 的 `PlayerTarget`。
+- `invite`、`host` 一次一位玩家（名稱可含空白）；`addref` 以空白分隔多個目標，每位各送一條指令、各印一行「已送出：」，含空白的名稱要改用 `#ID` 或網址。解析規則見 `bancho-match/AGENTS.md` 的 `PlayerTarget`。
+- 官方文件列有 addref 多目標語法；設計計畫記載 10-20 實測「名稱＋#ID」「多個 #ID」合在一條都回 `User not found: <整串>`，因此統一逐位發送。原始 10-20/21 樣本與裁判 session 回放仍 pending，尚未以本地樣本驗證。
 - `set` 接受數字或 `TeamMode`／`ScoreMode` 別名；`catch` 等遊玩模式由 `map` 處理。
 - `msg` 後面的字全部是對象（osu! 名稱可以有空白），訊息一律以 **`TextPrompt`** 另外提示輸入；只打 `msg` 時連對象也提示。對象與訊息寫在同一行時無從判斷界線，`msg Minato Yukina 你好` 曾經把訊息送給 `Minato`，不要改回單行。
 - `mp <指令…> [--room <房號>]` 轉送未包裝的 `!mp` 子指令；開房請用 `make`，`mp password` 一律拒絕（密碼會留在指令歷史）。

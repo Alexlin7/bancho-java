@@ -346,7 +346,8 @@ public class MatchCommands {
         if (invalid != null) {
             return invalid;
         }
-        return guardedOnRoom(context, InputGuard.ANY, room, r -> SENT + r.addRef(usernames.toArray(String[]::new)));
+        return guardedOnRoom(context, InputGuard.ANY, room, r -> r.addRef(usernames.toArray(String[]::new)).stream()
+                .map(command -> SENT + command).collect(Collectors.joining(System.lineSeparator())));
     }
 
     /*

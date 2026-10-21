@@ -109,6 +109,16 @@ class MatchCommandsTest {
 
     private static final String UNKNOWN_R = "開房結果未知：r；若遊戲內沒有這間房，用 drop r 釋放名額（之後不能再用這個房名）";
 
+    @Test
+    void addrefReportsEveryQueuedCommand() {
+        matchService.attach(42);
+        sender.calls.clear();
+
+        assertThat(commands.addref(List.of("A", "#2"), 42L, null))
+                .isEqualTo("已送出：!mp addref A" + System.lineSeparator() + "已送出：!mp addref #2");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp addref A", "msg #mp_42 !mp addref #2");
+    }
+
     private void makeUntilUnknown(String name) {
         commands.make(List.of(name), null, null);
         await().atMost(Duration.ofSeconds(2)).until(() -> printed.stream().anyMatch(line -> line.startsWith("開房結果未知：" + name)));

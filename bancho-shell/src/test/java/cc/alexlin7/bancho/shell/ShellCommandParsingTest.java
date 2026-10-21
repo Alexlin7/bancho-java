@@ -225,9 +225,9 @@ class ShellCommandParsingTest {
         assertThat(run("host https://osu.ppy.sh/users/2548278/fruits --room 42"))
                 .isEqualTo("已送出：!mp host #2548278");
         assertThat(run("addref osu.ppy.sh/users/2548278/fruits #42 --room 42"))
-                .isEqualTo("已送出：!mp addref #2548278 #42");
+                .isEqualTo("已送出：!mp addref #2548278\n已送出：!mp addref #42");
         assertThat(sender.calls).containsExactly("msg #mp_42 !mp invite #2548278",
-                "msg #mp_42 !mp host #2548278", "msg #mp_42 !mp addref #2548278 #42");
+                "msg #mp_42 !mp host #2548278", "msg #mp_42 !mp addref #2548278", "msg #mp_42 !mp addref #42");
     }
 
     @Test

@@ -43,7 +43,7 @@ class MatchRoomTest {
                 Arguments.of((Consumer<MatchRoom>) r -> r.password("abc"), "!mp password abc"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.password(null), "!mp password"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.password(" "), "!mp password"),
-                Arguments.of((Consumer<MatchRoom>) r -> r.addRef("A", "B"), "!mp addref A B"),
+                Arguments.of((Consumer<MatchRoom>) r -> r.addRef("A"), "!mp addref A"),
                 Arguments.of((Consumer<MatchRoom>) r -> r.say("gl hf"), "gl hf"));
     }
 
@@ -94,7 +94,7 @@ class MatchRoomTest {
         assertThat(sender.calls).containsExactly("msg #mp_123 !mp invite #2548278",
                 "msg #mp_123 !mp host #2548278", "msg #mp_123 !mp host #2548278",
                 "msg #mp_123 !mp host #2548278", "msg #mp_123 !mp host #2548278",
-                "msg #mp_123 !mp addref #2548278 #42");
+                "msg #mp_123 !mp addref #2548278", "msg #mp_123 !mp addref #42");
     }
 
     @Test
@@ -213,7 +213,22 @@ class MatchRoomTest {
     void addRefSendsStrippedNames() {
         room.addRef(" Alice ", "Bob");
 
-        assertThat(sender.calls).containsExactly("msg #mp_123 !mp addref Alice Bob");
+        assertThat(sender.calls).containsExactly("msg #mp_123 !mp addref Alice", "msg #mp_123 !mp addref Bob");
+    }
+
+    @Test
+    void addRefSendsOneCommandPerTarget() {
+        assertThat(room.addRef("Saru86", "#3538446", "https://osu.ppy.sh/users/2548278"))
+                .containsExactly("!mp addref Saru86", "!mp addref #3538446", "!mp addref #2548278");
+        assertThat(sender.calls).containsExactly("msg #mp_123 !mp addref Saru86",
+                "msg #mp_123 !mp addref #3538446", "msg #mp_123 !mp addref #2548278");
+    }
+
+    @Test
+    void addRefRejectsAnyInvalidTargetBeforeSending() {
+        assertThatThrownBy(() -> room.addRef("Saru86", "Tomari Mari"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("#ID");
+        assertThat(sender.calls).isEmpty();
     }
 
     @Test
