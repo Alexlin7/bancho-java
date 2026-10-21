@@ -165,6 +165,49 @@ public class MatchCommands {
         return String.join(System.lineSeparator(), lines);
     }
 
+    @Command(name = "players", group = GROUP, completionProvider = "roomOptionCompletion",
+            description = "列出房間成員；隊伍模式依藍隊、紅隊分組")
+    public String players(@Option(longName = ROOM, description = ROOM_OPTION) Long room,
+                          CommandContext context) {
+        String invalid = InputGuard.check(context, 0, ROOM);
+        return invalid != null ? invalid : rooms.onRoom(room, MatchCommands::describePlayers);
+    }
+
+    private static String describePlayers(MatchRoom room) {
+        MatchState state = room.state();
+        List<String> lines = new ArrayList<>();
+        lines.add(room.channel() + " " + (state.name() == null ? "(未知)" : state.name())
+                + "  " + (state.settings().teamMode() == null ? "?" : state.settings().teamMode())
+                + "  " + (state.settings().size() == null ? "?" : state.settings().size()) + " slots"
+                + "  host: " + (state.host() == null ? "?" : state.host()));
+        var slots = state.slots().entrySet().stream().sorted(Map.Entry.comparingByKey()).toList();
+        if (slots.isEmpty()) {
+            lines.add("  （沒有成員）");
+        } else if (TeamMode.parse(state.settings().teamMode()).map(TeamMode::hasTeams).orElse(false)) {
+            appendPlayersGroup(lines, slots, Team.BLUE, "藍隊", state.host());
+            appendPlayersGroup(lines, slots, Team.RED, "紅隊", state.host());
+            appendPlayersGroup(lines, slots, null, "無隊伍", state.host());
+        } else {
+            slots.forEach(slot -> lines.add("  " + formatPlayer(slot, state.host())));
+        }
+        lines.add("名單依 BanchoBot 訊息推算，可能與遊戲內不同步");
+        return String.join(System.lineSeparator(), lines);
+    }
+
+    private static void appendPlayersGroup(List<String> lines, List<Map.Entry<Integer, MatchState.Slot>> slots,
+                                           Team team, String label, String host) {
+        var members = slots.stream().filter(slot -> slot.getValue().team() == team).toList();
+        if (!members.isEmpty()) {
+            lines.add("  " + label);
+            members.forEach(slot -> lines.add("    " + formatPlayer(slot, host)));
+        }
+    }
+
+    private static String formatPlayer(Map.Entry<Integer, MatchState.Slot> slot, String host) {
+        String username = slot.getValue().username();
+        return "[" + slot.getKey() + "] " + username + (username.equals(host) ? " ★" : "");
+    }
+
     @Command(name = "drop", group = GROUP,
             description = "釋放結果未知的開房請求：先確認遊戲內沒有這間房；之後本次執行不能再用這個房名")
     public String drop(@Arguments List<String> words, CommandContext context) {

@@ -72,6 +72,17 @@ class ShellCommandParsingTest {
     }
 
     @Test
+    void playersReadsExplicitRoomAndRejectsExtraInput() throws Exception {
+        matchService.onMatchEvent(new cc.alexlin7.bancho.match.event.MatchEvent.PlayerJoined(42, "Reader", 1));
+
+        assertThat(run("players --room 42")).contains("#mp_42", "  [1] Reader",
+                "名單依 BanchoBot 訊息推算，可能與遊戲內不同步");
+        assertThat(run("players extra --room 42")).contains("多餘的參數：extra");
+        assertThat(run("players --rom 42")).contains("不認得的選項：--rom");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void startAndTimerTakePositionalValues() throws Exception {
         run("start 10 --room 42");
         run("timer 60 --room 42");

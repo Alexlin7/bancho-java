@@ -16,12 +16,94 @@ import org.junit.jupiter.api.Test;
 import cc.alexlin7.bancho.irc.IrcConnectionState;
 import cc.alexlin7.bancho.irc.RecordingIrcSender;
 import cc.alexlin7.bancho.match.MatchService;
+import cc.alexlin7.bancho.match.Team;
+import cc.alexlin7.bancho.match.event.MatchEvent.HostChanged;
+import cc.alexlin7.bancho.match.event.MatchEvent.PlayerJoined;
+import cc.alexlin7.bancho.match.event.MatchEvent.SettingsChanged;
 import cc.alexlin7.bancho.match.preset.MatchPreset;
 import cc.alexlin7.bancho.match.event.MatchEvent.MatchClosed;
 import cc.alexlin7.bancho.match.event.MatchEvent.MatchCreated;
 import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 
 class MatchCommandsTest {
+
+    private static final String PLAYERS_NOTE = "名單依 BanchoBot 訊息推算，可能與遊戲內不同步";
+
+    @Test
+    void playersGroupsByTeamInSlotOrder() {
+        matchService.attach(42);
+        matchService.onMatchEvent(new MatchCreated(42, "test123"));
+        matchService.onMatchEvent(new SettingsChanged(42, 4, "TeamVs", "ScoreV2"));
+        matchService.onMatchEvent(new PlayerJoined(42, "D", 4));
+        matchService.onMatchEvent(new PlayerJoined(42, "B", 3, Team.RED));
+        matchService.onMatchEvent(new PlayerJoined(42, "C", 2, Team.BLUE));
+        matchService.onMatchEvent(new PlayerJoined(42, "A", 1, Team.BLUE));
+        matchService.onMatchEvent(new HostChanged(42, "A"));
+
+        assertThat(commands.players(42L, null)).isEqualTo(String.join(System.lineSeparator(),
+                "#mp_42 test123  TeamVs  4 slots  host: A",
+                "  藍隊", "    [1] A ★", "    [2] C",
+                "  紅隊", "    [3] B", "  無隊伍", "    [4] D", PLAYERS_NOTE));
+    }
+
+    @Test
+    void playersInHeadToHeadIsSingleList() {
+        matchService.attach(42);
+        matchService.onMatchEvent(new SettingsChanged(42, 2, "HeadToHead", "Score"));
+        matchService.onMatchEvent(new PlayerJoined(42, "B", 2));
+        matchService.onMatchEvent(new PlayerJoined(42, "A", 1));
+        matchService.onMatchEvent(new HostChanged(42, "A"));
+
+        assertThat(commands.players(42L, null)).isEqualTo(String.join(System.lineSeparator(),
+                "#mp_42 (未知)  HeadToHead  2 slots  host: A",
+                "  [1] A ★", "  [2] B", PLAYERS_NOTE));
+    }
+
+    @Test
+    void playersInUnknownModeIsSingleListEvenWithKnownTeam() {
+        matchService.attach(42);
+        matchService.onMatchEvent(new SettingsChanged(42, null, "FutureMode", null));
+        matchService.onMatchEvent(new PlayerJoined(42, "A", 1, Team.BLUE));
+
+        assertThat(commands.players(42L, null)).isEqualTo(String.join(System.lineSeparator(),
+                "#mp_42 (未知)  FutureMode  ? slots  host: ?", "  [1] A", PLAYERS_NOTE));
+    }
+
+    @Test
+    void playersOmitsEmptyTeamGroups() {
+        matchService.attach(42);
+        matchService.onMatchEvent(new SettingsChanged(42, null, "TagTeamVs", null));
+        matchService.onMatchEvent(new PlayerJoined(42, "B", 3, Team.RED));
+
+        assertThat(commands.players(42L, null)).isEqualTo(String.join(System.lineSeparator(),
+                "#mp_42 (未知)  TagTeamVs  ? slots  host: ?", "  紅隊", "    [3] B", PLAYERS_NOTE));
+    }
+
+    @Test
+    void playersShowsUnknownFieldsAndEmptyRoomOffline() {
+        matchService.attach(42);
+        session.use(42);
+        sender.calls.clear();
+        connection = IrcConnectionState.IDLE;
+
+        assertThat(commands.players(null, null)).isEqualTo(String.join(System.lineSeparator(),
+                "#mp_42 (未知)  ?  ? slots  host: ?", "  （沒有成員）", PLAYERS_NOTE));
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void playersRoomOptionOverridesCurrentRoomAndReportsMissingRooms() {
+        assertThat(commands.players(null, null)).isEqualTo(NO_ROOM);
+        assertThat(commands.players(999L, null)).isEqualTo("找不到房間：999");
+        matchService.attach(42);
+        matchService.attach(7);
+        session.use(42);
+        sender.calls.clear();
+
+        assertThat(commands.players(7L, null)).startsWith("#mp_7 ");
+        assertThat(session.currentRoom()).contains(42L);
+        assertThat(sender.calls).isEmpty();
+    }
 
     private static final String NO_ROOM = "請先用 make / use / attach 選擇房間，或加上 --room <房號>";
 

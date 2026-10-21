@@ -36,7 +36,8 @@ JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行。
 
 ## 指令
 
-- **`MatchCommands`**：`make <房名…> [--preset]`、`attach`、`use`、`rooms`（含建房中、結果未知的請求與 `名額 n/4`）、`drop <房名…>`、`invite <玩家目標…>`、`host <玩家目標…>`、`team <blue|red> <玩家目標…>`、`addref <玩家目標…>`、`map <beatmapId> [模式]`、`mods`、`set`、`start [秒]`、`timer [秒]`、`abort`、`close`、`settings`、`password [--clear]`、`mp`。**`ChatCommands`**：`say`、`msg`。**`LoginCommands`**：`login`。內建 `help`、`quit`。
+- **`MatchCommands`**：`make <房名…> [--preset]`、`attach`、`use`、`players`、`rooms`（含建房中、結果未知的請求與 `名額 n/4`）、`drop <房名…>`、`invite <玩家目標…>`、`host <玩家目標…>`、`team <blue|red> <玩家目標…>`、`addref <玩家目標…>`、`map <beatmapId> [模式]`、`mods`、`set`、`start [秒]`、`timer [秒]`、`abort`、`close`、`settings`、`password [--clear]`、`mp`。**`ChatCommands`**：`say`、`msg`。**`LoginCommands`**：`login`。內建 `help`、`quit`。
+- `players [--room <房號>]` 讀取房間快照，不送 IRC；已知隊伍模式依藍隊、紅隊、無隊伍分組，其他模式用單一名單，各組依 slot 排序，房主加 `★`。底部提示名單可能與遊戲內不同步；隊伍與 host 目前僅以合成事件驗證，真實 parser 尚待樣本。
 - 房間指令預設作用在 **`ShellSession`** 的目前房間，`--room <房號>` 可指定其他房間；由 `RoomResolver` 解析房間，參數錯誤一律轉成 `錯誤：...` 文字，不讓例外冒到 shell。
 - `make` 逾時時印出「開房結果未知」並提示 `drop`；晚到的成功回覆標註「晚到的回覆」並套用範本，但**不切換目前房間**（使用者可能已在另一間房主持），提示以 `use <房號>` 切換；被 drop 的請求不印任何訊息。
 - `invite`、`host` 一次一位玩家（名稱可含空白）；`addref` 以空白分隔多個目標，每位各送一條指令、各印一行「已送出：」，含空白的名稱要改用 `#ID` 或網址。解析規則見 `bancho-match/AGENTS.md` 的 `PlayerTarget`。
@@ -52,7 +53,7 @@ JVM 直接寫到 stderr 的 `WARNING:` 不經過 logback，會插進輸入行。
 - Spring Shell 會悄悄忽略打錯的選項與多餘的參數，所以每個指令先經過 **`InputGuard`**（注入 `CommandContext` 檢查）拒絕它們。
 - 數字位置參數（`set`、`map`、`attach`、`use`）收 `String` 自行解析：交給 Spring Shell 轉換時，少給或非數字只會得到看不懂的英文例外。少給或格式錯誤一律回 `錯誤：用法：…`。
 - 以 `-` 開頭的文字或名稱要用雙引號（`addref "-SH-" --room 42`），或在目前房間使用 `--`（`addref -- -SH-`、`host -- -SH-`）。`--` 只能緊接指令，之後不能再加選項（`--room`、`--room=…` 都會被拒絕）；要指定房間請用雙引號。單引號不會被移除。
-- **`LoginGuard`**：會送 IRC 的指令（`make`、`attach`、房間操作、`mp`、`password`、`say`、`msg`）只在連線狀態為 `REGISTERED` 時放行，在 `InputGuard` 之後、任何提示之前檢查；`IDLE`／`AUTH_FAILED` 回「請先 login」，`CONNECTING`（含斷線重連中）回「正在連線 Bancho，請等登入完成」，避免指令留在佇列、帳密被拒後重試時意外送出。`use`、`rooms`、`drop` 不受限。
+- **`LoginGuard`**：會送 IRC 的指令（`make`、`attach`、房間操作、`mp`、`password`、`say`、`msg`）只在連線狀態為 `REGISTERED` 時放行，在 `InputGuard` 之後、任何提示之前檢查；`IDLE`／`AUTH_FAILED` 回「請先 login」，`CONNECTING`（含斷線重連中）回「正在連線 Bancho，請等登入完成」，避免指令留在佇列、帳密被拒後重試時意外送出。`use`、`rooms`、`players`、`drop` 不受限。
 
 ## 提示、補全與行編輯
 
