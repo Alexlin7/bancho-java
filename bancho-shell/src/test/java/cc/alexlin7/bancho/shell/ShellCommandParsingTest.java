@@ -166,6 +166,33 @@ class ShellCommandParsingTest {
     }
 
     @Test
+    void teamKeepsWholeTargetAndSupportsBothRoomOptionForms() throws Exception {
+        matchService.attach(43);
+        session.use(42);
+        sender.calls.clear();
+        assertThat(run("team blue Tomari Mari --room 43")).isEqualTo("已送出：!mp team Tomari Mari blue");
+        run("team --room=43 RED https://osu.ppy.sh/users/2548278");
+        run("team red \"- S H -\" --room 42");
+        run("team -- blue -SH-");
+        assertThat(sender.calls).containsExactly("msg #mp_43 !mp team Tomari Mari blue",
+                "msg #mp_43 !mp team #2548278 red", "msg #mp_42 !mp team - S H - red",
+                "msg #mp_42 !mp team -SH- blue");
+    }
+
+    @Test
+    void teamRejectsInvalidInputAndExplainsUsage() throws Exception {
+        session.use(42);
+        assertThat(run("team green A --room 42")).contains("錯誤：用法：team <blue|red>");
+        assertThat(run("team red --room 42")).contains("錯誤：用法：team <blue|red>");
+        assertThat(run("team blue A --rom 42")).contains("不認得的選項：--rom");
+        assertThat(run("team -- blue -SH- --room 43")).contains("-- 之後不能再加 --room");
+        assertThat(run("team -- red -SH- --room=43")).contains("-- 之後不能再加 --room");
+        assertThat(run("team blue #0 --room 42")).startsWith("錯誤：");
+        assertThat(run("team --help")).contains("team blue Tomari Mari", "team red #2548278", "team red \"-SH-\"");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void invalidPlayerTargetsSendNothing() throws Exception {
         for (String command : List.of("invite", "host")) {
             for (String target : List.of("#0", "#abc", "https://example.com/users/2548278",

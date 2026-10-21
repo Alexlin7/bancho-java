@@ -14,6 +14,8 @@ import org.springframework.shell.core.command.completion.CompletionProvider;
 
 import cc.alexlin7.bancho.irc.RecordingIrcSender;
 import cc.alexlin7.bancho.match.MatchService;
+import cc.alexlin7.bancho.match.Team;
+import cc.alexlin7.bancho.match.event.MatchEvent.HostChanged;
 import cc.alexlin7.bancho.match.preset.MatchPreset;
 import cc.alexlin7.bancho.match.event.MatchEvent.MatchClosed;
 import cc.alexlin7.bancho.match.event.MatchEvent.MatchCreated;
@@ -25,6 +27,56 @@ class ShellCompletionsTest {
     private final MatchService matchService = new MatchService(new RecordingIrcSender(), Duration.ofSeconds(1));
     private final KnownUsers knownUsers = new KnownUsers(new MatchPresetProperties(Map.of()));
     private final ShellCompletions completions = new ShellCompletions();
+    private final ShellSession session = new ShellSession();
+
+    @Test
+    void memberCompletionSortsSlotsWithTeamAndHostDescriptions() {
+        matchService.onMatchEvent(new PlayerJoined(42, "A", 1, Team.BLUE));
+        matchService.onMatchEvent(new PlayerJoined(42, "B", 3, Team.RED));
+        matchService.onMatchEvent(new PlayerJoined(42, "C", 2, null));
+        matchService.onMatchEvent(new HostChanged(42, "A"));
+        session.use(42);
+        var proposals = completions.memberCompletion(matchService, session).apply(typing("host", ""));
+        assertThat(proposals).extracting(CompletionProposal::value).containsExactly("A", "C", "B");
+        assertThat(proposals).extracting(CompletionProposal::description)
+                .containsExactly("藍 · slot 1 · host", "slot 2", "紅 · slot 3");
+    }
+
+    @Test
+    void memberAndTeamCompletionUseExplicitRoomInsteadOfCurrentRoom() {
+        matchService.onMatchEvent(new PlayerJoined(42, "A", 1));
+        matchService.onMatchEvent(new PlayerJoined(43, "X", 1));
+        session.use(42);
+        var members = completions.memberCompletion(matchService, session);
+        var teams = completions.teamCompletion(matchService, session);
+        assertThat(values(members, typing("host", "--room", "43", ""))).containsExactly("X");
+        assertThat(values(members, typing("host", "--room=43", ""))).containsExactly("X");
+        assertThat(values(teams, typing("team", "--room", "43", "blue", ""))).containsExactly("X");
+        assertThat(values(teams, typing("team", "--room=43", "red", ""))).containsExactly("X");
+        assertThat(values(teams, typing("team", "--room=43", ""))).containsExactly("blue", "red");
+    }
+
+    @Test
+    void memberCompletionIsEmptyWithoutRoomOrMembers() {
+        var members = completions.memberCompletion(matchService, session);
+        assertThat(values(members, typing("host", ""))).isEmpty();
+        matchService.attach(42);
+        session.use(42);
+        assertThat(values(members, typing("host", ""))).isEmpty();
+        assertThat(values(members, typing("host", "--room=999", ""))).isEmpty();
+    }
+
+    @Test
+    void teamCompletionOffersColoursThenRoomMembers() {
+        matchService.onMatchEvent(new PlayerJoined(42, "Tomari Mari", 1));
+        session.use(42);
+        var provider = completions.teamCompletion(matchService, session);
+        assertThat(values(provider, typing("team", ""))).containsExactly("blue", "red");
+        assertThat(values(provider, typing("team", "R"))).containsExactly("red");
+        assertThat(values(provider, typing("team", "blue", "To"))).containsExactly("Tomari Mari");
+        assertThat(values(provider, typing("team", "blue", "Tomari", ""))).containsExactly("Tomari Mari");
+        assertThat(values(provider, typingRoomOption("team", "--room", ""))).containsExactly("42");
+    }
 
     /** 主要參數：最後一個字是正在輸入的字。 */
     private static CompletionContext typing(String... words) {
@@ -159,8 +211,9 @@ class ShellCompletionsTest {
 
     @Test
     void hostCompletionPreservesUnicodeNamesAndSupportsRoomOption() {
-        knownUsers.onMatchEvent(new PlayerJoined(7, "- Ｓ Ｈ -", 1));
-        var provider = completions.userCompletion(knownUsers, matchService);
+        matchService.onMatchEvent(new PlayerJoined(7, "- Ｓ Ｈ -", 1));
+        session.use(7);
+        var provider = completions.memberCompletion(matchService, session);
         assertThat(values(provider, typing("host", ""))).containsExactly("- Ｓ Ｈ -");
         matchService.attach(7);
         assertThat(values(provider, typingRoomOption("host", "A", "--room", ""))).containsExactly("7");
@@ -171,6 +224,7 @@ class ShellCompletionsTest {
         var provider = completions.mpCompletion(matchService);
         assertThat(values(provider, typing("mp", "k"))).containsExactly("kick");
         assertThat(values(provider, typing("mp", "h"))).isEmpty();
+        assertThat(values(provider, typing("mp", "te"))).isEmpty();
         assertThat(values(provider, typing("mp", "host", ""))).isEmpty();
         assertThat(values(provider, typing("mp", "--room", "42", "k"))).containsExactly("kick");
         matchService.attach(7);

@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -53,6 +54,11 @@ public final class MatchRoom {
     /** 指定房主；可用名稱、#ID 或 osu! 個人頁網址，回傳實際入列指令。 */
     public String host(String player) {
         return command(MP + "host " + PlayerTarget.commandArgument(player));
+    }
+
+    /** 把玩家換到指定隊伍，回傳實際入列指令；不代表 BanchoBot 已確認成功。 */
+    public String team(String player, Team team) {
+        return command(MP + "team " + PlayerTarget.commandArgument(player) + " " + team.name().toLowerCase(Locale.ROOT));
     }
 
     /**

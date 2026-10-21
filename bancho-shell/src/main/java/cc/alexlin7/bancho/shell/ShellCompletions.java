@@ -3,6 +3,8 @@ package cc.alexlin7.bancho.shell;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -17,8 +19,11 @@ import cc.alexlin7.bancho.match.BanchoMode;
 import cc.alexlin7.bancho.match.GameMode;
 import cc.alexlin7.bancho.match.MatchRoom;
 import cc.alexlin7.bancho.match.MatchService;
+import cc.alexlin7.bancho.match.MatchState;
+import cc.alexlin7.bancho.match.MatchState.Slot;
 import cc.alexlin7.bancho.match.ModNames;
 import cc.alexlin7.bancho.match.ScoreMode;
+import cc.alexlin7.bancho.match.Team;
 import cc.alexlin7.bancho.match.TeamMode;
 import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 
@@ -30,7 +35,7 @@ import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
 class ShellCompletions {
 
     static final List<String> MP_SUBCOMMANDS = List.of(
-            "aborttimer", "clearhost", "kick", "listrefs", "lock", "move", "removeref", "size", "team",
+            "aborttimer", "clearhost", "kick", "listrefs", "lock", "move", "removeref", "size",
             "unlock");
 
     private static final Set<String> OPTIONS_WITH_VALUE = Set.of(
@@ -71,12 +76,66 @@ class ShellCompletions {
     }
 
     /**
-     * invite、host、addref：使用者名稱。
+     * invite、addref：所有已知使用者名稱。
      */
     @Bean
     CompletionProvider userCompletion(KnownUsers knownUsers, MatchService matchService) {
         return withRoomOption(matchService,
                 context -> filter(knownUsers.all().stream().map(CompletionProposal::new).toList(), context));
+    }
+
+    /** host：只補目標房間中的成員。 */
+    @Bean
+    CompletionProvider memberCompletion(MatchService matchService, ShellSession session) {
+        return withRoomOption(matchService, context -> filter(members(matchService, session, context), context));
+    }
+
+    /** team：先選顏色，再補目標房間成員。 */
+    @Bean
+    CompletionProvider teamCompletion(MatchService matchService, ShellSession session) {
+        return withRoomOption(matchService, context -> filter(positionalIndex(context) == 0
+                ? List.of(new CompletionProposal("blue"), new CompletionProposal("red"))
+                : members(matchService, session, context), context));
+    }
+
+    private static List<CompletionProposal> members(MatchService matchService, ShellSession session,
+                                                   CompletionContext context) {
+        return targetRoom(context, session).flatMap(matchService::room).map(room -> {
+            MatchState state = room.state();
+            return state.slots().entrySet().stream().sorted(Map.Entry.comparingByKey())
+                    .map(entry -> new CompletionProposal(entry.getValue().username())
+                            .description(memberDescription(entry.getKey(), entry.getValue(), state.host())))
+                    .toList();
+        }).orElse(List.of());
+    }
+
+    private static Optional<Long> targetRoom(CompletionContext context, ShellSession session) {
+        List<String> words = context.getWords();
+        for (int i = 1; i < words.size(); i++) {
+            String word = words.get(i);
+            if (word.equals("--")) {
+                break;
+            }
+            String value = null;
+            if (word.equals("--room") && i + 1 < words.size()) {
+                value = words.get(i + 1);
+            } else if (word.startsWith("--room=")) {
+                value = word.substring("--room=".length());
+            }
+            if (value != null) {
+                try {
+                    return Optional.of(Long.valueOf(value));
+                } catch (NumberFormatException _) {
+                    return Optional.empty();
+                }
+            }
+        }
+        return session.currentRoom();
+    }
+
+    static String memberDescription(int slot, Slot member, String host) {
+        String team = member.team() == null ? "" : (member.team() == Team.BLUE ? "藍" : "紅") + " · ";
+        return team + "slot " + slot + (member.username().equals(host) ? " · host" : "");
     }
 
     @Bean

@@ -50,6 +50,31 @@ class MatchCommandsTest {
     }
 
     @Test
+    void teamJoinsPlayerWordsAfterColour() {
+        matchService.attach(42);
+        sender.calls.clear();
+        assertThat(commands.team(List.of("blue", "Tomari", "Mari"), 42L, null))
+                .isEqualTo("已送出：!mp team Tomari Mari blue");
+        assertThat(sender.calls).containsExactly("msg #mp_42 !mp team Tomari Mari blue");
+    }
+
+    @Test
+    void teamRejectsInvalidColourAndMissingPlayerWithoutSending() {
+        String usage = "錯誤：用法：team <blue|red> <玩家目標…> [--room <房號>]";
+        assertThat(commands.team(List.of("green", "A"), 42L, null)).isEqualTo(usage);
+        assertThat(commands.team(List.of("red"), 42L, null)).isEqualTo(usage);
+        assertThat(commands.team(List.of(), 42L, null)).isEqualTo(usage);
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
+    void teamRequiresLogin() {
+        connection = IrcConnectionState.IDLE;
+        assertThat(commands.team(List.of("red", "A"), 42L, null)).isEqualTo("錯誤：請先 login");
+        assertThat(sender.calls).isEmpty();
+    }
+
+    @Test
     void roomCommandsRejectedBeforeLogin() {
         matchService.attach(42);
         session.use(42);

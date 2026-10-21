@@ -26,6 +26,7 @@ import cc.alexlin7.bancho.match.MatchService;
 import cc.alexlin7.bancho.match.MatchState;
 import cc.alexlin7.bancho.match.PendingMatch;
 import cc.alexlin7.bancho.match.ScoreMode;
+import cc.alexlin7.bancho.match.Team;
 import cc.alexlin7.bancho.match.TeamMode;
 import cc.alexlin7.bancho.match.preset.MatchPreset;
 import cc.alexlin7.bancho.match.spring.MatchPresetProperties;
@@ -46,6 +47,7 @@ public class MatchCommands {
     private static final String SET_USAGE = USAGE + "set <隊伍模式：h2h/tag/teamvs/tagvs 或 0–3> "
             + "<計分模式：score/accuracy/combo/scorev2 或 0–3> <人數> [--room <房號>]；例如 set teamvs v2 4";
     private static final String MAP_USAGE = USAGE + "map <beatmap id> [模式] [--room <房號>]";
+    private static final String TEAM_USAGE = USAGE + "team <blue|red> <玩家目標…> [--room <房號>]";
 
     private final MatchService matchService;
     private final ShellSession session;
@@ -190,7 +192,7 @@ public class MatchCommands {
         return guardedOnRoom(context, InputGuard.ANY, room, r -> SENT + r.invite(username));
     }
 
-    @Command(name = "host", group = GROUP, completionProvider = "userCompletion",
+    @Command(name = "host", group = GROUP, completionProvider = "memberCompletion",
             description = "指定房主（名稱、#ID 或個人頁網址）；名稱以 - 開頭時見 host --help", help = InputGuard.HOST_HELP)
     public String host(@Arguments List<String> words,
                        @Option(longName = ROOM, description = ROOM_OPTION) Long room,
@@ -200,6 +202,23 @@ public class MatchCommands {
             return invalid;
         }
         return guardedOnRoom(context, InputGuard.ANY, room, r -> SENT + r.host(InputGuard.join(words)));
+    }
+
+    @Command(name = "team", group = GROUP, completionProvider = "teamCompletion",
+            description = "把玩家換到藍隊或紅隊；用法見 team --help", help = InputGuard.TEAM_HELP)
+    public String team(@Arguments List<String> words,
+                       @Option(longName = ROOM, description = ROOM_OPTION) Long room,
+                       CommandContext context) {
+        String invalid = InputGuard.rejectRoomAfterDoubleDash(words, "team");
+        if (invalid != null) {
+            return invalid;
+        }
+        Optional<Team> team = words.isEmpty() ? Optional.empty() : Team.parse(words.getFirst());
+        if (team.isEmpty() || words.size() < 2) {
+            return guardedUsage(context, InputGuard.ANY, TEAM_USAGE);
+        }
+        String player = InputGuard.join(words.subList(1, words.size()));
+        return guardedOnRoom(context, InputGuard.ANY, room, r -> SENT + r.team(player, team.orElseThrow()));
     }
 
     @Command(name = "map", group = GROUP, completionProvider = "mapCompletion",

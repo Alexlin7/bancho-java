@@ -56,6 +56,16 @@ final class InputGuard {
             以 - 開頭的名稱請用雙引號，或緊接在 host 後面加 --；單引號沒有作用。
             """;
 
+    static final String TEAM_HELP = """
+            把玩家換隊：team <blue|red> <名稱|#ID|個人頁網址> [--room <房號>]
+            顏色放第一位，其後的完整名稱可以含空白：
+              team blue Tomari Mari
+              team red #2548278
+              team red "-SH-" --room 42
+              team -- blue -SH-（目前房間；-- 之後不能再加 --room 或 --room=…）
+            名稱以 - 開頭時請用雙引號，或緊接在 team 後面加 --；單引號沒有作用。
+            """;
+
     static final String SET_HELP = """
             set <隊伍模式> <計分模式> <人數 1–16> [--room <房號>]
             模式不分大小寫，也接受原本的數字 0–3：

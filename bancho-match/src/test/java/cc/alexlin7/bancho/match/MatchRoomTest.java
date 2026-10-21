@@ -22,6 +22,20 @@ class MatchRoomTest {
     private final RecordingIrcSender sender = new RecordingIrcSender();
     private final MatchRoom room = new MatchRoom(123, "r", sender);
 
+    @Test
+    void teamSendsColourAfterTarget() {
+        assertThat(room.team("- S H -", Team.RED)).isEqualTo("!mp team - S H - red");
+        assertThat(room.team("https://osu.ppy.sh/users/2548278", Team.BLUE)).isEqualTo("!mp team #2548278 blue");
+        assertThat(sender.calls).containsExactly("msg #mp_123 !mp team - S H - red",
+                "msg #mp_123 !mp team #2548278 blue");
+    }
+
+    @Test
+    void teamRejectsInvalidPlayerBeforeSending() {
+        assertThatThrownBy(() -> room.team("#0", Team.BLUE)).isInstanceOf(IllegalArgumentException.class);
+        assertThat(sender.calls).isEmpty();
+    }
+
     static Stream<Arguments> commands() {
         return Stream.of(
                 Arguments.of((Consumer<MatchRoom>) r -> r.invite("Alexlin86"), "!mp invite Alexlin86"),
