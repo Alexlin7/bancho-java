@@ -123,8 +123,9 @@ final class InputGuard {
 
     /** parser 在 -- 後會把房間選項當名稱；拒絕整條指令以免誤送到目前房間。 */
     static String rejectRoomAfterDoubleDash(List<String> words, String command) {
+        String targetExample = "team".equals(command) ? "blue \"-SH-\"" : "\"-SH-\"";
         return words.stream().anyMatch(word -> word.equals("--room") || word.startsWith("--room="))
-                ? "錯誤：-- 之後不能再加 --room 或 --room=…；要指定房間請用雙引號，例如 " + command + " \"-SH-\" --room 42"
+                ? "錯誤：-- 之後不能再加 --room 或 --room=…；要指定房間請用雙引號，例如 " + command + " " + targetExample + " --room 42"
                 : null;
     }
 

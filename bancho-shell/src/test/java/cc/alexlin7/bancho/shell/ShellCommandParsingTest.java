@@ -193,6 +193,21 @@ class ShellCommandParsingTest {
     }
 
     @Test
+    void teamRoomAfterDoubleDashSuggestsAnExecutableCommand() throws Exception {
+        session.use(43);
+        for (String roomOption : List.of("--room 42", "--room=42")) {
+            String error = run("team -- red -SH- " + roomOption);
+            assertThat(error).startsWith("錯誤：-- 之後不能再加 --room");
+            assertThat(sender.calls).isEmpty();
+
+            String example = error.substring(error.indexOf("例如 ") + "例如 ".length());
+            assertThat(run(example)).isEqualTo("已送出：!mp team -SH- blue");
+            assertThat(sender.calls).containsExactly("msg #mp_42 !mp team -SH- blue");
+            sender.calls.clear();
+        }
+    }
+
+    @Test
     void invalidPlayerTargetsSendNothing() throws Exception {
         for (String command : List.of("invite", "host")) {
             for (String target : List.of("#0", "#abc", "https://example.com/users/2548278",
