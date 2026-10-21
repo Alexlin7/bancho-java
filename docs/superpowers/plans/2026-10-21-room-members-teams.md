@@ -10,6 +10,37 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-21-room-members-teams-design.md`
 
+## 實作狀態（2026-10-21）
+
+目前在 `feature/room-members-teams`，**整份計畫尚未完成，不合回 main**。以下狀態表用於換電腦後接續工作；原步驟中的未勾選項仍須依這裡的範圍判讀。
+
+| Task | 狀態與對應提交 |
+|---|---|
+| 1 | addref 指令、範本、shell 與測試已完成並通過審查（`3bfd8b3`）；10-20 樣本匯入與 `replaysRefereeSession` 待補。 |
+| 2 | Team／host／部分設定的事件、狀態與 KnownUsers 已完成並通過審查（`670bd4c`）；新 parser 規則、parser 測試與 10-19／21 真實樣本待補。 |
+| 3 | 狀態行為文件已隨 Task 2 更新；兩個新真實回放案例待補。 |
+| 4 | team 指令與目標房間成員補全完成並通過審查（`4d5d100`、`509e709`）。 |
+| 5 | players 完成並通過審查（`463914d`）。 |
+| 6 | set 分段輸入完成並通過獨立審查（`50aa503`）。 |
+
+已實作範圍的最後全套驗證：JDK 25 執行 `./mvnw -o test`，528 項測試通過，0 failures／errors／skipped。這是本機測試，未連真實 Bancho，也未人工操作原生互動終端；不補足下述缺失樣本與回放的驗證。
+
+### 真實樣本的前置條件
+
+`logs/` 被 Git 排除，不會隨 clone 帶到另一台電腦。本次環境的 `logs/samples-2026-10-19.irc` 只有認證失敗數字行，沒有 BanchoBot 訊息；10-20／21 檔案不存在。因此尚未新增這些格式的 parser，也沒有用設計文件原文捏造真實 fixture。
+
+接續 Task 1／2／3 前，須取得原機完整的 `samples-2026-10-19.irc`、`samples-2026-10-20.irc`、`samples-2026-10-21.irc`，依各 task 的來源、切點與去識別規則匯入 `bancho-match/src/test/resources/banchobot/` 並提交，讓測試依據能隨 repository 移轉。之後新增規則、執行指定回放及全部測試，再進行整體審查與整合。
+
+目前模型與 shell 的新隊伍／host 行為以合成事件驗證；不代表真實 TeamVs 成員追蹤已修復。既有 parser 與既有回放測試仍保留。
+
+### 執行時裁決
+
+- `SlotStatus` 依同名玩家保留隊伍，不讓新玩家繼承目的 slot 前一位玩家的隊伍。
+- `team` 已有專用指令，從 `mp` 補全移除；`--` 誤用提示須包含顏色，例：`team blue "-SH-" --room 42`。
+- `players` 只有在已辨識的隊伍模式下分組；未知模式列單一名單。
+- Task 6 人數非數字的錯誤依 spec「與一行寫法相同」，沿用現有 `SET_USAGE`；不採本計畫後文的獨立 `abc` 錯誤文字。
+- 實際 Spring Shell 省略 String 位置參數時會綁成空字串；由 `CommandContext.parsedInput().arguments().isEmpty()` 判斷完全省略。直接呼叫方法仍以三個 null 進入提示；明確給一、兩個參數（含空字串）仍回用法錯誤。
+
 ## Global Constraints
 
 - `bancho-match` 純 Java，compile 依賴只有 `bancho-irc` 與 `slf4j-api`，不可加入 Spring。
